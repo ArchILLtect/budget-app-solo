@@ -1,0 +1,62 @@
+[33mca51043[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m Add: multi-person select feature
+[33m0cdd051[m Update: refactor to use calculation helper functions and allow for filingStatus states
+[33mc25b648[m Fix: incorrect function name
+[33m89f88f2[m Refactor: use helper functions for calculations and add inputs for filing status selection
+[33m8cbff67[m Refactor: switch position of stat to match tracker stats layout
+[33m55dd7ef[m Chore: fix bad spacing
+[33m175dfbb[m Update: refactor to use new calculation helper functions
+[33m4271c5c[m Update: fix incorrect method call
+[33md832b20[m Update: fix incorrect prop calls
+[33m1687b8b[m Chore: update better styiling for stats
+[33m7986e41[m Add/Delete: add calcUtils helper and move all existing helpers from taxUtils
+[33m628965d[m Add: prettier conditions
+[33mba7d3bf[m Refactor: remove totalSavings state from SaveMonthlyPlan
+[33m32c38ea[m Add: MonthlyActualSummary and SavingsLog components; add new components to BudgetTracker
+[33m43cfdcd[m Update: add reset functionality and direct log calculation for Svaings Progress Bar with store
+[33m3e80bfe[m Refactor: remove parameter/arg carry-over and direct access to store
+[33m9f8eb85[m Chore: add toodo
+[33m839b284[m Refactor: moved savings progess bar and budgettracker into their own components
+[33mae97dba[m Add: budgetTracker feature
+[33m59681be[m Chores: Update styling
+[33md9ea4fa[m Update: add timestamp creation for new objects
+[33mea35c4b[m Update: refactor savings goal progress styling and add goal reset placeholder
+[33m8bf3f38[m Update: add dayjs package
+[33m49fef26[m Add: BudgetTracker plan creation and savings goal progress bar
+[33m3135041[m Update: fix style inconsistency
+[33m3b5b334[m Update: add persistent state for current page
+[33me7f80c0[m Add: account tracking page
+[33med39f45[m Add/Update: add placeholder modal for account syncing; add accounts page and button for account sync to navbar
+[33m3a0a34b[m Upgrade: add page tracker for persistent page state
+[33mca1d3e9[m Update: file structure update to coincide with new planned features
+[33m5a67c63[m Update: add delete scenario feature functionality
+[33m6559b8d[m Update: make show inputs persistent state
+[33mb69f9f4[m Add: scenario feature
+[33mcceda32[m Update: add todo
+[33m7499934[m Add: panner and tracker pages
+[33mabd670c[m Add: NavBar component
+[33mf2d64f8[m Upgrade: switch to React Router and use pages
+[33m90385a7[m Update: show expense pie chart ONLY when more than 1 expense
+[33mbf0ab7b[m Update: name of 'Main Job' --> 'primary'
+[33m1442572[m Update: remove param for ExpenseTracker and call component only
+[33m6e4c1fc[m Chore: remove unused imports
+[33m39b8f0c[m Update: use budgetStore for net income state instead of arg
+[33m0bd966c[m Update: styles
+[33m1e267e8[m Update: use total net income in stat instead of selected net income
+[33m81b9327[m Update: add confirm message for expense removal
+[33m3e99fd4[m Update: add functionality for net income calculation; fix remove income and reset functions
+[33m9c00561[m Add: helper component for tax calculations
+[33mf3e26f0[m Update: use TOTAL net income for expense tracking
+[33m7c12a6e[m Refactor: budgetStore set for multiple income sources
+[33ma18c73d[m Refactor: Income calculator refactor to use Form compoonent
+[33ma2467fb[m Refactor: Moved Income Inputs to separate component
+[33mc8a6cac[m Update: display styles
+[33mc410ed3[m Add/Upgrade: add savings expense and make form inputs section collapsible
+[33m05eb246[m Upgrade: make input forms collapsible and clean up display
+[33m281ba72[m Refactor: default new expenses to use existing id first then create id in none exists
+[33maa867c0[m Chores: Clean up display of page
+[33m688e5b0[m Add ExpensePie component
+[33mee5d515[m Add: ExpenseTracker component; Integrate ExpenseTracker in app
+[33me64503f[m Upgrade: Use hook to keep netIncome state up-to-date
+[33m15e6d36[m Add: Installed recharts
+[33md6a2c59[m Add: Installed resources, created Income Calculator and budgetStore
+[33mda3abec[m first commit

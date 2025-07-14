@@ -1,89 +1,58 @@
-import { useState, useEffect } from 'react'
+import { useEffect } from 'react'
 import { useBudgetStore } from '../../state/budgetStore'
 import {
-  Box,
-  Flex,
-  Collapse,
-  Heading,
-  Stack,
-  Input,
-  Button,
-  HStack,
-  IconButton,
-  FormControl,
-  FormLabel,
-  RadioGroup,
-  Radio,
-  Stat,
-  StatGroup,
-  StatLabel,
-  StatNumber
+  Box, Flex, Collapse, Heading, Stack, Input, Button, HStack, IconButton,
+  Stat, StatGroup, StatLabel, StatNumber
 } from '@chakra-ui/react'
 import { AddIcon, DeleteIcon } from '@chakra-ui/icons'
+import SavingsPlanner from '../../components/SavingsPlanner';
 
 // TODO: Use FormErrorMessage for better validation feedback
 
-export default function ExpenseTracker() {
+export default function ExpenseTracker({ origin = 'Planner', selectedMonth = null }) {
   const { currentScenario,
-    saveScenario,
-    showExpenseInputs,
-    setShowExpenseInputs,
-    incomeSources,
-    savingsMode,
-    setSavingsMode,
-    customSavings,
-    setCustomSavings,
-    expenses,
-    addExpense,
-    updateExpense,
-    removeExpense
+    saveScenario, showExpenseInputs, setShowExpenseInputs, incomeSources
   } = useBudgetStore();
-  const handleRemove = (id) => {
-    if (window.confirm('Are you sure you want to remove this expense?')) {
-      removeExpense(id)
-    }
-  }
 
+  const actualraw = useBudgetStore((s) => s.monthlyActuals[selectedMonth]);
+  const actual = actualraw || {};
+  const plannerExpenses = useBudgetStore((s) => s.expenses);
+  const trackerExpenses = actual.actualExpenses || [];
+
+  const addExpenseRaw = useBudgetStore((s) => s.addExpense);
+  const addActualExpense = useBudgetStore((s) => s.addActualExpense);
+  const updateExpenseRaw = useBudgetStore((s) => s.updateExpense);
+  const updateMonthlyActuals = useBudgetStore((s) => s.updateMonthlyActuals);
+  const removeExpenseRaw = useBudgetStore((s) => s.removeExpense);
+  const removeActualExpense = useBudgetStore((s) => s.removeActualExpense);
+  const isTracker = origin === 'Tracker';
+  const expenses = isTracker ? trackerExpenses : plannerExpenses;
+  const addExpense = isTracker
+    ? (entry) => addActualExpense(selectedMonth, entry)
+    : addExpenseRaw;
+  const updateExpense = isTracker
+    ? (id, data) => updateMonthlyActuals(selectedMonth, id, data)
+    : updateExpenseRaw;
+  const removeExpense = isTracker
+    ? (id) => removeActualExpense(selectedMonth, id)
+    : removeExpenseRaw;
   const netIncome = useBudgetStore((s) => s.getTotalNetIncome().net);
   const monthlyIncome = netIncome / 12;
-
   const totalExpenses = expenses.reduce((sum, e) => sum + (e.amount || 0), 0)
   const savingsValue = expenses.find(e => e.id === 'savings')?.amount || 0
   const leftover = monthlyIncome - totalExpenses;
 
   useEffect(() => {
-    const monthlyIncome = netIncome / 12
-
-    let savingsPercent = 0
-    if (savingsMode === '10') savingsPercent = 0.1
-    else if (savingsMode === '20') savingsPercent = 0.2
-    else if (savingsMode === 'custom' && customSavings)
-      savingsPercent = customSavings / 100
-
-    const savingsAmount = parseFloat((monthlyIncome * savingsPercent).toFixed(2))
-
-    const existing = expenses.find((e) => e.id === 'savings')
-    if (savingsMode === 'none') {
-      if (existing) removeExpense('savings')
-    } else {
-      if (existing) {
-        updateExpense('savings', { amount: savingsAmount })
-      } else {
-        addExpense({
-          id: 'savings',
-          name: 'Savings',
-          amount: savingsAmount,
-          isSavings: true,
-        })
-      }
-    }
-  }, [savingsMode, customSavings, netIncome])
-
-  useEffect(() => {
     if (currentScenario) {
       saveScenario(currentScenario);
     }
-  }, [savingsMode, customSavings, expenses, incomeSources]);
+  }, [expenses, incomeSources]);
+
+  const handleRemove = (id) => {
+    if (window.confirm('Are you sure you want to remove this expense?')) {
+      removeExpense(id)
+    }
+  }
 
   return (
     <Box borderWidth="1px" borderRadius="lg" p={4} mt={6}>
@@ -136,66 +105,38 @@ export default function ExpenseTracker() {
             >
               Add Expense
             </Button>
-
-            <FormControl mt={4}>
-              <FormLabel fontWeight="semibold">Include Savings?</FormLabel>
-              <RadioGroup
-                value={savingsMode}
-                onChange={(val) => setSavingsMode(val)}
-              >
-                <Stack direction="row">
-                  <Radio value="none">None</Radio>
-                  <Radio value="10">10%</Radio>
-                  <Radio value="20">20%</Radio>
-                  <Radio value="custom">Custom</Radio>
-                </Stack>
-              </RadioGroup>
-
-              {savingsMode === 'custom' && (
-                <Input
-                  mt={2}
-                  type="number"
-                  max={100}
-                  min={1}
-                  value={customSavings || ''}
-                  placeholder="Enter custom %"
-                  onChange={(e) => {
-                    const raw = parseFloat(e.target.value) || 0
-                    const clamped = Math.min(Math.max(raw, 1), 100)
-                    setCustomSavings(clamped)
-                  }}
-                />
-              )}
-            </FormControl>
+            <SavingsPlanner />
           </Stack>
         </Collapse>
-        <Box mt={2} px={4} py={3} borderWidth={1} borderRadius="md" bg="gray.50">
-          <StatGroup>
-            <Stat textAlign={'center'}>
-              <StatLabel>Est. Net Income</StatLabel>
-              <StatNumber color="teal.600">${monthlyIncome.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</StatNumber>
-            </Stat>
-
-            <Stat textAlign={'center'}>
-              <StatLabel>Total Expenses</StatLabel>
-              <StatNumber color="teal.600">${totalExpenses.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</StatNumber>
-            </Stat>
-
-            {savingsValue > 0 && (
+        {!isTracker &&
+          <Box mt={2} px={4} py={3} borderWidth={1} borderRadius="md" bg="gray.50">
+            <StatGroup>
               <Stat textAlign={'center'}>
-                <StatLabel>Total Savings</StatLabel>
-                <StatNumber color="teal.600">${savingsValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</StatNumber>
+                <StatLabel>Est. Net Income</StatLabel>
+                <StatNumber color="teal.600">${monthlyIncome.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</StatNumber>
               </Stat>
-            )}
 
-            <Stat textAlign={'center'}>
-              <StatLabel>Leftover</StatLabel>
-              <StatNumber color={leftover >= 0 ? 'green.600' : 'red.600'} fontSize="2xl">
-                ${leftover.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </StatNumber>
-            </Stat>
-          </StatGroup>
-        </Box>
+              <Stat textAlign={'center'}>
+                <StatLabel>Total Expenses</StatLabel>
+                <StatNumber color="teal.600">${totalExpenses.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</StatNumber>
+              </Stat>
+
+              {savingsValue > 0 && (
+                <Stat textAlign={'center'}>
+                  <StatLabel>Total Savings</StatLabel>
+                  <StatNumber color="teal.600">${savingsValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</StatNumber>
+                </Stat>
+              )}
+
+              <Stat textAlign={'center'}>
+                <StatLabel>Leftover</StatLabel>
+                <StatNumber color={leftover >= 0 ? 'green.600' : 'red.600'} fontSize="2xl">
+                  ${leftover.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </StatNumber>
+              </Stat>
+            </StatGroup>
+          </Box>
+        }
       </Stack>
     </Box>
   )

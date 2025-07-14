@@ -11,7 +11,6 @@ export const useBudgetStore = create(
     persist(
         (set) => ({
             currentPage: 'planner', // or null initially
-            setCurrentPage: (page) => set(() => ({ currentPage: page })),
             filingStatus: 'headOfHousehold', // 'single' | 'marriedSeparate' | 'marriedJoint' | 'headOfHousehold'
             incomeSources: [
                 {
@@ -63,11 +62,6 @@ export const useBudgetStore = create(
                     savingsMode: '10',
                 },
             },
-            selectedSourceId: 'primary',
-            showIncomeInputs: false, // Controls visibility of income input fields
-            showExpenseInputs: true, // Controls visibility of income input fields
-            setShowIncomeInputs: (value) => set(() => ({ showIncomeInputs: value })),
-            setShowExpenseInputs: (value) => set(() => ({ showExpenseInputs: value })),
             expenses: [
                 { id: 'rent', name: 'Rent', amount: 1600 },
                 { id: 'groceries', name: 'Groceries', amount: 400 },
@@ -76,14 +70,27 @@ export const useBudgetStore = create(
             savingsMode: 'none', // 'none' | '10' | '20' | 'custom'
             customSavings: 0,
             currentScenario: 'Main',
-            filingStatus: 'single', // 'single' | 'marriedSeparate' | 'marriedJoint' | 'headOfHousehold'
             // 📅 Current month being tracked
             selectedMonth: currentMonth,
-            setSelectedMonth: (month) => set(() => ({ selectedMonth: month })),
+            selectedSourceId: 'primary',
+            showIncomeInputs: false, // Controls visibility of income input fields
+            showExpenseInputs: true, // Controls visibility of income input fields
             savingsGoal: 10000,
-            setSavingsGoal: (goal) => set(() => ({ savingsGoal: goal })),
             savingsLogs: {}, // key: '2025-07', value: [{ amount, date }]
+            monthlyPlans: {},
+            // 📊 Actuals for the month
+            monthlyActuals: {},
+            setCurrentPage: (page) => set(() => ({ currentPage: page })),
+            setShowIncomeInputs: (value) => set(() => ({ showIncomeInputs: value })),
+            setShowExpenseInputs: (value) => set(() => ({ showExpenseInputs: value })),
+            setSelectedMonth: (month) => set(() => ({ selectedMonth: month })),
+            setFilingStatus: (value) => set(() => ({ filingStatus: value })),
+            setSavingsGoal: (goal) => set(() => ({ savingsGoal: goal })),
             resetSavingsLogs: () => set(() => ({ savingsLogs: {} })),
+            selectIncomeSource: (id) => set(() => ({ selectedSourceId: id })),
+            setSavingsMode: (mode) => set(() => ({ savingsMode: mode })),
+            setCustomSavings: (value) => set(() => ({ customSavings: value })),
+            setScenario: (name) => set({ currentScenario: name }),
             getTotalSavingsLogged: () => {
                 const { savingsLogs } = useBudgetStore.getState();
                 return Object.values(savingsLogs)
@@ -105,7 +112,6 @@ export const useBudgetStore = create(
                 const logs = savingsLogs[month] || [];
                 return logs.reduce((sum, e) => sum + e.amount, 0);
             },
-            monthlyPlans: {},
             saveMonthlyPlan: (month, planData) =>
                 set((state) => {
                     const newPlan = {
@@ -122,6 +128,8 @@ export const useBudgetStore = create(
                         actualExpenses: JSON.parse(
                             JSON.stringify(planData.expenses || [])
                         ),
+                        savingsMode: planData.savingsMode,
+                        customSavings: planData.customSavings,
                     };
 
                     return {
@@ -148,15 +156,75 @@ export const useBudgetStore = create(
                         monthlyActuals: updatedActuals,
                     };
                 }),
-            // 📊 Actuals for the month
-            monthlyActuals: {},
-            updateMonthlyActuals: (month, updates) =>
+            updateMonthlyActuals: (month, id, newData) =>
+                set((state) => {
+                    const existing = state.monthlyActuals[month];
+                    if (!existing || !Array.isArray(existing.actualExpenses)) return {};
+
+                    const updatedExpenses = existing.actualExpenses.map((e) =>
+                        e.id === id ? { ...e, ...newData } : e
+                    );
+
+                    return {
+                        monthlyActuals: {
+                            ...state.monthlyActuals,
+                            [month]: {
+                                ...existing,
+                                actualExpenses: updatedExpenses,
+                            },
+                        },
+                    };
+                }),
+            addActualExpense: (month, expense) =>
+                set((state) => {
+                    const newExpense = {
+                        ...expense,
+                        id: expense.id || crypto.randomUUID(),
+                        createdAt: new Date().toISOString(),
+                    };
+                    const existing = state.monthlyActuals[month];
+                    const updated = [...existing.actualExpenses, newExpense];
+                    return {
+                        monthlyActuals: {
+                            ...state.monthlyActuals,
+                            [month]: {
+                                ...existing,
+                                actualExpenses: updated,
+                            },
+                        },
+                    };
+                }),
+            removeActualExpense: (month, id) =>
+                set((state) => {
+                    const existing = state.monthlyActuals[month];
+                    const updated = existing.actualExpenses.filter((e) => e.id !== id);
+                    return {
+                        monthlyActuals: {
+                            ...state.monthlyActuals,
+                            [month]: {
+                                ...existing,
+                                actualExpenses: updated,
+                            },
+                        },
+                    };
+                }),
+            setActualSavingsMode: (month, mode) =>
                 set((state) => ({
                     monthlyActuals: {
                         ...state.monthlyActuals,
                         [month]: {
                             ...state.monthlyActuals[month],
-                            ...updates,
+                            savingsMode: mode,
+                        },
+                    },
+                })),
+            setActualCustomSavings: (month, value) =>
+                set((state) => ({
+                    monthlyActuals: {
+                        ...state.monthlyActuals,
+                        [month]: {
+                            ...state.monthlyActuals[month],
+                            customSavings: value,
                         },
                     },
                 })),
@@ -245,7 +313,6 @@ export const useBudgetStore = create(
                         },
                     };
                 }),
-            selectIncomeSource: (id) => set(() => ({ selectedSourceId: id })),
             addExpense: (expense) =>
                 set((state) => {
                     const newExpense = {
@@ -295,8 +362,6 @@ export const useBudgetStore = create(
                         },
                     };
                 }),
-            setSavingsMode: (mode) => set(() => ({ savingsMode: mode })),
-            setCustomSavings: (value) => set(() => ({ customSavings: value })),
             resetScenario: () =>
                 set({
                     incomeSources: [
@@ -318,7 +383,6 @@ export const useBudgetStore = create(
                     filingStatus: 'headOfHousehold', // 'single' | 'married' | 'head'
                     // TODO: reset scenarios to default?
                 }),
-            setScenario: (name) => set({ currentScenario: name }),
             saveScenario: (name) =>
                 set((state) => ({
                     scenarios: {

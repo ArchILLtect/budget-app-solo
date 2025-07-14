@@ -75,7 +75,7 @@ export default function TrackerHeader() {
                         Plan: {plan.scenarioName || 'Unnamed'}
                     </Text>
                     <Button size="xs" variant="outline" colorScheme="blue">
-                        Edit Plan
+                        Edit Plan/Actual
                     </Button>
                     <Button size="xs" variant="outline" colorScheme="red" onClick={handleRemove}>
                         Remove Plan

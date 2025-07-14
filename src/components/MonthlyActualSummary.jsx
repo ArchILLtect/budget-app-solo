@@ -1,4 +1,4 @@
-import { Box, Text, Stat, StatLabel, StatNumber, StatGroup, Progress, useColorModeValue } from '@chakra-ui/react';
+import { Box, Text, Heading, Stat, StatLabel, StatNumber, StatGroup, Progress, useColorModeValue } from '@chakra-ui/react';
 import { useBudgetStore } from '../state/budgetStore';
 import dayjs from 'dayjs';
 
@@ -24,7 +24,7 @@ export default function MonthlyActualSummary() {
 
   return (
     <Box p={4} mb={4} borderBottomRadius="lg" boxShadow="md" bg={bg}>
-      <Text fontSize="lg" fontWeight="bold" mb={2}>This Month's Summary</Text>
+      <Heading size="md" fontWeight="bold" mb={2}>This Month's Summary</Heading>
 
       <StatGroup>
         <Stat textAlign={'center'}>

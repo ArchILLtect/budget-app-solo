@@ -1,29 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useBudgetStore } from '../../state/budgetStore'
-import {
-  Box,
-  Flex,
-  Heading,
-  HStack,
-  Radio,
-  FormControl,
-  FormLabel,
-  Tabs,
-  TabList,
-  TabPanels,
-  Tab,
-  TabPanel,
-  Stack,
-  Text,
-  Tooltip,
-  Stat,
-  StatLabel,
-  StatNumber,
-  StatHelpText,
-  StatGroup,
-  Collapse,
-  RadioGroup,
-  Button
+import { Box, Flex, Heading, HStack, Radio, FormControl, FormLabel, Tabs,TabList,
+  TabPanels, Tab, TabPanel, Stack, Text, Tooltip, Stat, StatLabel, StatNumber,
+  StatHelpText, StatGroup, Collapse, RadioGroup, Button
 } from '@chakra-ui/react'
 import IncomeSourceForm from '../../components/IncomeSourceForm'
 import { InfoIcon } from '@chakra-ui/icons'
@@ -39,15 +18,13 @@ export default function IncomeCalculator() {
   const setSelected = useBudgetStore((s) => s.selectIncomeSource)
   const updateSource = useBudgetStore((s) => s.updateIncomeSource)
   const addSource = useBudgetStore((s) => s.addIncomeSource)
+  const setFilingStatus = useBudgetStore((s) => s.setFilingStatus)
   const grossTotal = useBudgetStore.getState().getTotalGrossIncome();
 
   const activeSource = sources.find((s) => s.id === selectedId) || sources[0] || {}
   const { net, breakdown } = useBudgetStore.getState().getTotalNetIncome();
 
-  // TODO: Add filing status and adjust brackets accordingly
-  // For now, we assume single filer
-  // This can be extended to include other filing statuses like married, head of household, etc.
-  // For simplicity, we will use the single filer brackets for both federal and state taxes
+  // TODO: Connect filing status with tax rate calcs
 
   const handleAddSource = () => {
     const id = crypto.randomUUID(); // generate a new ID here
@@ -63,6 +40,12 @@ export default function IncomeCalculator() {
 
     addSource(newSource)     // ✅ uses our updated store logic
     setSelected(id)          // ✅ auto-switch to the new tab
+  }
+
+  const handleUpdateFilingStatus = (val) => {
+
+    updateScenario(currentScenario, { filingStatus: val })
+    setFilingStatus(val)
   }
 
   useEffect(() => {
@@ -86,7 +69,7 @@ export default function IncomeCalculator() {
         <FormLabel>Filing Status</FormLabel>
         <RadioGroup
           value={scenarios[currentScenario].filingStatus}
-          onChange={(val) => updateScenario(currentScenario, { filingStatus: val })}
+          onChange={(val) => handleUpdateFilingStatus(val)}
         >
           <HStack spacing={4}>
               <Radio value="single">Single</Radio>

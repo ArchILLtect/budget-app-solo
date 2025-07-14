@@ -14,7 +14,7 @@ export default function BudgetTrackerPage() {
     <Box bg="gray.200" p={4} minH="100vh">
       <Box p={4} maxW="800px" mx="auto" borderWidth={1} borderRadius="lg" boxShadow="md" background={"white"}>
         <Center mb={4}>
-          <Heading size="md" fontWeight={700}>Budget Tracker - {dayjs().format('MMMM YYYY')}</Heading>
+          <Heading size="md" fontWeight={700}>Budget Tracker</Heading>
         </Center>
 
         <TrackerHeader />

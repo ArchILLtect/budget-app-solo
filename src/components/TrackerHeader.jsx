@@ -40,6 +40,11 @@ export default function TrackerHeader() {
         }
     };
 
+    const handleTempButton = (id) => {
+        if (window.alert('This feature coming soon')) {
+        }
+    }
+
     return (
         <Box p={2} borderTopRadius="lg" boxShadow="md" bg={useColorModeValue('gray.50', 'gray.700')}>
             <Center my={1}>
@@ -74,7 +79,7 @@ export default function TrackerHeader() {
                     <Text fontSize="sm" color="gray.500">
                         Plan: {plan.scenarioName || 'Unnamed'}
                     </Text>
-                    <Button size="xs" variant="outline" colorScheme="blue">
+                    <Button size="xs" variant="outline" colorScheme="blue" onClick={() => handleTempButton()}>
                         Edit Plan/Actual
                     </Button>
                     <Button size="xs" variant="outline" colorScheme="red" onClick={handleRemove}>

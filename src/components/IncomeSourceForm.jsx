@@ -106,8 +106,7 @@ export default function IncomeSourceForm({ source, onUpdate }) {
             Delete This Source
           </Button>
         </Center>
-
-    )}
+      )}
     </>
   )
 }

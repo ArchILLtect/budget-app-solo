@@ -27,7 +27,7 @@ export default function ScenarioSelector() {
                     onChange={(e) => loadScenario(e.target.value)}
                 >
                     {Object.keys(scenarios).map((name) => (
-                    <option key={name} value={name}>{name}</option>
+                        <option key={name} value={name}>{name}</option>
                     ))}
                 </Select>
                 {/* Delete Scenario Button */}

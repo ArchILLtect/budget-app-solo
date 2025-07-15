@@ -41,12 +41,13 @@ export default function TrackerHeader() {
     };
 
     const handleTempButton = (id) => {
-        if (window.alert('This feature coming soon')) {
+        if (window.alert('This feature coming soon!\n\nFor now you must edit the scenario in the'
+            + ' Budget Planner and then "Remove Plan" and re-"Set Plan"')) {
         }
     }
 
     return (
-        <Box p={2} borderTopRadius="lg" boxShadow="md" bg={useColorModeValue('gray.50', 'gray.700')}>
+        <Box p={2} borderTopRadius="lg" boxShadow="md" bg={useColorModeValue('gray.50', 'gray.700')} borderWidth={2}>
             <Center my={1}>
                 <Flex bg={'white'}>
                     <IconButton

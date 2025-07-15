@@ -6,7 +6,7 @@ import {
 import dayjs from 'dayjs';
 import TrackerHeader from '../components/TrackerHeader';
 import BudgetTracker from '../features/tracker/BudgetTracker';
-import SavingsProgressBar from '../features/tracker/SavingsProgressBar';
+import SavingsGoalsTracker from '../features/tracker/SavingsGoalsTracker';
 
 export default function BudgetTrackerPage() {
 
@@ -21,7 +21,7 @@ export default function BudgetTrackerPage() {
 
         <BudgetTracker />
 
-        <SavingsProgressBar />
+        <SavingsGoalsTracker />
       </Box>
     </Box>
   );

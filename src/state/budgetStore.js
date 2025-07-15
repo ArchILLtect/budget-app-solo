@@ -73,16 +73,25 @@ export const useBudgetStore = create(
             // 📅 Current month being tracked
             selectedMonth: currentMonth,
             selectedSourceId: 'primary',
-            showIncomeInputs: false, // Controls visibility of income input fields
-            showExpenseInputs: true, // Controls visibility of income input fields
+            showPlanInputs: false, // Controls visibility of input fields
+            showActualInputs: false,
+            showIncomeInputs: false,
+            showExpenseInputs: true,
+            showSavingsLogInputs: true,
+            showGoalInputs: true,
             savingsGoal: 10000,
             savingsLogs: {}, // key: '2025-07', value: [{ amount, date }]
             monthlyPlans: {},
             // 📊 Actuals for the month
             monthlyActuals: {},
             setCurrentPage: (page) => set(() => ({ currentPage: page })),
+            setShowPlanInputs: (value) => set(() => ({ showPlanInputs: value })),
+            setShowActualInputs: (value) => set(() => ({ showActualInputs: value })),
             setShowIncomeInputs: (value) => set(() => ({ showIncomeInputs: value })),
             setShowExpenseInputs: (value) => set(() => ({ showExpenseInputs: value })),
+            setShowSavingsLogInputs: (value) =>
+                set(() => ({ showSavingsLogInputs: value })),
+            setShowGoalInputs: (value) => set(() => ({ showGoalInputs: value })),
             setSelectedMonth: (month) => set(() => ({ selectedMonth: month })),
             setFilingStatus: (value) => set(() => ({ filingStatus: value })),
             setSavingsGoal: (goal) => set(() => ({ savingsGoal: goal })),
@@ -124,9 +133,20 @@ export const useBudgetStore = create(
                     const existingActual = state.monthlyActuals[month];
 
                     const newActual = existingActual ?? {
-                        actualIncome: +planData.netIncome?.toFixed(2) || 0,
+                        actualTotalNetIncome: +planData.netIncome?.toFixed(2) || 0,
                         actualExpenses: JSON.parse(
                             JSON.stringify(planData.expenses || [])
+                        ),
+                        actualFixedIncomeSources: JSON.parse(
+                            JSON.stringify(
+                                [
+                                    {
+                                        id: 'main',
+                                        name: 'Main (Plan)',
+                                        amount: +planData.netIncome?.toFixed(2) || 0,
+                                    },
+                                ] || []
+                            )
                         ),
                         savingsMode: planData.savingsMode,
                         customSavings: planData.customSavings,
@@ -156,7 +176,7 @@ export const useBudgetStore = create(
                         monthlyActuals: updatedActuals,
                     };
                 }),
-            updateMonthlyActuals: (month, id, newData) =>
+            updateMonthlyExpenseActuals: (month, id, newData) =>
                 set((state) => {
                     const existing = state.monthlyActuals[month];
                     if (!existing || !Array.isArray(existing.actualExpenses)) return {};
@@ -208,7 +228,62 @@ export const useBudgetStore = create(
                         },
                     };
                 }),
-            setActualSavingsMode: (month, mode) =>
+            updateMonthlyIncomeActuals: (month, id, newData) =>
+                set((state) => {
+                    const existing = state.monthlyActuals[month];
+                    if (!existing || !Array.isArray(existing.actualFixedIncomeSources))
+                        return {};
+
+                    const updatedIncomeSources = existing.actualFixedIncomeSources.map(
+                        (e) => (e.id === id ? { ...e, ...newData } : e)
+                    );
+
+                    return {
+                        monthlyActuals: {
+                            ...state.monthlyActuals,
+                            [month]: {
+                                ...existing,
+                                actualFixedIncomeSources: updatedIncomeSources,
+                            },
+                        },
+                    };
+                }),
+            addActualIncomeSource: (month, expense) =>
+                set((state) => {
+                    const newExpense = {
+                        ...expense,
+                        id: expense.id || crypto.randomUUID(),
+                        createdAt: new Date().toISOString(),
+                    };
+                    const existing = state.monthlyActuals[month];
+                    const updated = [...existing.actualFixedIncomeSources, newExpense];
+                    return {
+                        monthlyActuals: {
+                            ...state.monthlyActuals,
+                            [month]: {
+                                ...existing,
+                                actualFixedIncomeSources: updated,
+                            },
+                        },
+                    };
+                }),
+            removeActualIncomeSource: (month, id) =>
+                set((state) => {
+                    const existing = state.monthlyActuals[month];
+                    const updated = existing.actualFixedIncomeSources.filter(
+                        (e) => e.id !== id
+                    );
+                    return {
+                        monthlyActuals: {
+                            ...state.monthlyActuals,
+                            [month]: {
+                                ...existing,
+                                actualFixedIncomeSources: updated,
+                            },
+                        },
+                    };
+                }),
+            /*setActualSavingsMode: (month, mode) =>
                 set((state) => ({
                     monthlyActuals: {
                         ...state.monthlyActuals,
@@ -217,7 +292,7 @@ export const useBudgetStore = create(
                             savingsMode: mode,
                         },
                     },
-                })),
+                })),*/
             setActualCustomSavings: (month, value) =>
                 set((state) => ({
                     monthlyActuals: {
@@ -225,6 +300,26 @@ export const useBudgetStore = create(
                         [month]: {
                             ...state.monthlyActuals[month],
                             customSavings: value,
+                        },
+                    },
+                })),
+            setOveriddenExpenseTotal: (month, value) =>
+                set((state) => ({
+                    monthlyActuals: {
+                        ...state.monthlyActuals,
+                        [month]: {
+                            ...state.monthlyActuals[month],
+                            overiddenExpenseTotal: value >= 1 ? value : 0, // Save only meaningful values
+                        },
+                    },
+                })),
+            setOveriddenIncomeTotal: (month, value) =>
+                set((state) => ({
+                    monthlyActuals: {
+                        ...state.monthlyActuals,
+                        [month]: {
+                            ...state.monthlyActuals[month],
+                            overiddenIncomeTotal: value >= 1 ? value : 0, // Save only meaningful values
                         },
                     },
                 })),
@@ -296,6 +391,60 @@ export const useBudgetStore = create(
                     };
                 }),
             removeIncomeSource: (id) =>
+                set((state) => {
+                    const updated = state.incomeSources.filter((s) => s.id !== id);
+                    return {
+                        incomeSources: updated,
+                        selectedSourceId:
+                            state.selectedSourceId === id
+                                ? updated[0]?.id || null
+                                : state.selectedSourceId,
+                        scenarios: {
+                            ...state.scenarios,
+                            [state.currentScenario]: {
+                                ...state.scenarios[state.currentScenario],
+                                incomeSources: updated,
+                            },
+                        },
+                    };
+                }),
+            // TODO: All FIXED Income Source functions need updating.
+            addFixedIncomeSource: (source) =>
+                set((state) => {
+                    const newSource = {
+                        ...source,
+                        id: source.id || crypto.randomUUID(),
+                        createdAt: new Date().toISOString(),
+                    };
+                    const updated = [...state.incomeSources, newSource];
+                    return {
+                        incomeSources: updated,
+                        scenarios: {
+                            ...state.scenarios,
+                            [state.currentScenario]: {
+                                ...state.scenarios[state.currentScenario],
+                                incomeSources: updated,
+                            },
+                        },
+                    };
+                }),
+            updateFixedIncomeSource: (id, updates) =>
+                set((state) => {
+                    const updated = state.incomeSources.map((s) =>
+                        s.id === id ? { ...s, ...updates } : s
+                    );
+                    return {
+                        incomeSources: updated,
+                        scenarios: {
+                            ...state.scenarios,
+                            [state.currentScenario]: {
+                                ...state.scenarios[state.currentScenario],
+                                incomeSources: updated,
+                            },
+                        },
+                    };
+                }),
+            removeFixedIncomeSource: (id) =>
                 set((state) => {
                     const updated = state.incomeSources.filter((s) => s.id !== id);
                     return {

@@ -6,8 +6,9 @@ import { Box, Flex, Heading, HStack, Radio, FormControl, FormLabel, Tabs,TabList
 } from '@chakra-ui/react'
 import IncomeSourceForm from '../../components/IncomeSourceForm'
 import { InfoIcon } from '@chakra-ui/icons'
+import AddFixedIncomeSource from '../../components/AddFixedIncomeSource'
 
-export default function IncomeCalculator() {
+export default function IncomeCalculator({ origin = 'Planner', selectedMonth = null }) {
   const [showDetails, setShowDetails] = useState(false)
 
   const { scenarios, currentScenario, updateScenario } = useBudgetStore();
@@ -24,6 +25,7 @@ export default function IncomeCalculator() {
   const activeSource = sources.find((s) => s.id === selectedId) || sources[0] || {}
   const { net, breakdown } = useBudgetStore.getState().getTotalNetIncome();
 
+  const isTracker = origin === 'Tracker';
   // TODO: Connect filing status with tax rate calcs
 
   const handleAddSource = () => {
@@ -48,6 +50,11 @@ export default function IncomeCalculator() {
     setFilingStatus(val)
   }
 
+  const handleTempButton = (id) => {
+    if (window.alert('This feature coming soon')) {
+    }
+  }
+
   useEffect(() => {
     if (activeSource) {
       updateSource(activeSource.id, { netIncome: net })
@@ -56,68 +63,80 @@ export default function IncomeCalculator() {
 
   return (
     <Box borderWidth="1px" borderRadius="lg" p={4} mb={6}>
-      <Flex mb={2} justifyContent="space-between" alignItems="center">
-        <Heading size="md">Income</Heading>
+      <Flex justifyContent="space-between" alignItems="center" borderWidth={1} p={3} borderRadius="lg">
+        <Heading size="md">Monthly Income</Heading>
+        {!isTracker &&
+          <Button variant={'outline'} colorScheme="blue" onClick={() => handleTempButton()}>Use Fixed Income</Button>
+        }
+        <Heading size="md">${net.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Heading>
+      </Flex>
+      <Flex justifyContent={'end'} my={2}>
         <Button size="xs" variant="link" colorScheme="blue" ml={2} onClick={() => setShowIncomeInputs(!showIncomeInputs)}>
-          {showIncomeInputs ? 'Hide Inputs' : 'Show Inputs'}
+          {showIncomeInputs ? 'Hide Income Inputs' : 'Show Income Inputs'}
         </Button>
       </Flex>
 
+
       <Collapse mb={4} in={showIncomeInputs} animateOpacity>
-      
-      <FormControl mb={4}>
-        <FormLabel>Filing Status</FormLabel>
-        <RadioGroup
-          value={scenarios[currentScenario].filingStatus}
-          onChange={(val) => handleUpdateFilingStatus(val)}
-        >
-          <HStack spacing={4}>
-              <Radio value="single">Single</Radio>
-              <Radio value="headOfHousehold">Head of household</Radio>
-              <Radio value="marriedSeparate">Married filing seperately</Radio>
-              <Radio value="marriedJoint">Married filing jointly</Radio>
-          </HStack>
-        </RadioGroup>
-      </FormControl>
-      
-        <Tabs
-          index={sources.findIndex((s) => s.id === selectedId)}
-          onChange={(index) => {
-            if (index < sources.length) {
-              setSelected(sources[index].id)
-            }
-            // else: it's the +Add tab — no need to set selected source yet
-          }}
-          isLazy
-          variant="enclosed"
-        >
-          <TabList>
-            {sources.map((source) => (
-              <Tab key={source.id}>{source.label}</Tab>
-            ))}
-            <Tab onClick={() => handleAddSource()}>+ Add</Tab>
-          </TabList>
+      {isTracker ? (
+        <AddFixedIncomeSource origin={origin} selectedMonth={selectedMonth} />
+      ) : (
+        <>
+          <FormControl mb={4}>
+            <FormLabel>Filing Status</FormLabel>
+            <RadioGroup
+              value={scenarios[currentScenario].filingStatus}
+              onChange={(val) => handleUpdateFilingStatus(val)}
+            >
+              <HStack spacing={4}>
+                  <Radio value="single">Single</Radio>
+                  <Radio value="headOfHousehold">Head of household</Radio>
+                  <Radio value="marriedSeparate">Married filing seperately</Radio>
+                  <Radio value="marriedJoint">Married filing jointly</Radio>
+              </HStack>
+            </RadioGroup>
+          </FormControl>
+          
+            <Tabs
+              index={sources.findIndex((s) => s.id === selectedId)}
+              onChange={(index) => {
+                if (index < sources.length) {
+                  setSelected(sources[index].id)
+                }
+                // else: it's the +Add tab — no need to set selected source yet
+              }}
+              isLazy
+              variant="enclosed"
+            >
+              <TabList>
+                {sources.map((source) => (
+                  <Tab key={source.id}>{source.label}</Tab>
+                ))}
+                <Tab onClick={() => handleAddSource()}>+ Add</Tab>
+              </TabList>
 
-          <TabPanels>
-            {sources.map((source) => (
-              <TabPanel key={source.id}>
-                {/* YOUR income input form for this source */}
-                <IncomeSourceForm source={source} onUpdate={updateSource} />
-              </TabPanel>
-            ))}
+              <TabPanels>
+                {sources.map((source) => (
+                  <TabPanel key={source.id}>
+                    {/* YOUR income input form for this source */}
+                    <IncomeSourceForm source={source} onUpdate={updateSource} />
+                  </TabPanel>
+                ))}
 
-            {/* Fallback panel shown only if sources = [] (shouldn’t happen, but safe to keep) */}
-            <TabPanel>
-              <Button onClick={() => handleAddSource()}>
-                Create New Income Source
-              </Button>
-            </TabPanel>
-          </TabPanels>
-        </Tabs>
+                {/* Fallback panel shown only if sources = [] (shouldn’t happen, but safe to keep) */}
+                <TabPanel>
+                  <Button onClick={() => handleAddSource()}>
+                    Create New Income Source
+                  </Button>
+                </TabPanel>
+              </TabPanels>
+            </Tabs>
+          </>
+      )}
       </Collapse>
 
       {/* Estimated Income Output */}
-      {grossTotal > 0 && (
+      {grossTotal > 0 & !isTracker ? (
         <Box mt={2} px={4} py={3} borderWidth={1} borderRadius="md" bg="gray.50">
           <StatGroup>
             <Stat textAlign={'center'}>
@@ -137,10 +156,12 @@ export default function IncomeCalculator() {
                 ${net.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </StatNumber>
               <StatHelpText mb={0}>
-                After taxes
-                <Button size="xs" variant="link" colorScheme="blue" ml={2} onClick={() => setShowDetails(!showDetails)}>
-                  {showDetails ? 'Hide Breakdown' : 'Show Breakdown'}
-                </Button>
+                <Stack gap={0}>
+                  <Text>After taxes</Text>
+                  <Button size="xs" variant="link" colorScheme="blue" ml={2} onClick={() => setShowDetails(!showDetails)}>
+                    {showDetails ? 'Hide Breakdown' : 'Show Breakdown'}
+                  </Button>
+                </Stack>
 
                 <Collapse in={showDetails} animateOpacity>
                   <Stack mt={3} spacing={2}>
@@ -166,7 +187,7 @@ export default function IncomeCalculator() {
             </Stat>
           </StatGroup>
         </Box>
-      )}
+      ) : ("") }
     </Box>
   )
 }

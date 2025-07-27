@@ -31,25 +31,25 @@ export default function MonthlyPlanSummary() {
       <StatGroup>
         <Stat textAlign={'center'}>
             <StatLabel>Planned Net Income</StatLabel>
-            <StatNumber color="teal.500">${plan.netIncome?.toFixed(2)}</StatNumber>
+            <StatNumber color="teal.500">${plan.netIncome?.toLocaleString()}</StatNumber>
         </Stat>
 
         <Stat textAlign={'center'}>
             <StatLabel>Planned Expenses</StatLabel>
-            <StatNumber color="orange.500">${plan.totalExpenses?.toFixed(2)}</StatNumber>
+            <StatNumber color="orange.500">${plan.totalExpenses?.toLocaleString()}</StatNumber>
         </Stat>
 
         {plan.totalSavings > 0 && (
         <Stat textAlign={'center'}>
             <StatLabel>Planned Savings</StatLabel>
-            <StatNumber color="blue.500">${plan.totalSavings?.toFixed(2)}</StatNumber>
+            <StatNumber color="blue.500">${plan.totalSavings?.toLocaleString()}</StatNumber>
         </Stat>
         )}
 
         <Stat textAlign={'center'}>
             <StatLabel>Leftover</StatLabel>
             <StatNumber color={plan.estLeftover >= 0 ? "green.500" : "red.500"} fontSize="2xl">
-              ${plan.estLeftover?.toFixed(2)}
+              ${plan.estLeftover?.toLocaleString()}
             </StatNumber>
         </Stat>
       </StatGroup>

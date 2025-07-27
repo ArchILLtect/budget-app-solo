@@ -21,7 +21,7 @@ export default function NavBar() {
   return (
     <Box position="sticky" top="0" zIndex="1000" bg={useColorModeValue('teal.500', 'teal.700')} px={4} py={3} shadow="md">
       <Flex h={8} alignItems={'center'} justifyContent={'space-between'}>
-        <Heading size="md" color="white">Budgeting App</Heading>
+        <Heading size="md" color="white">Budgeteer</Heading>
 
         {currentPage === 'accounts' && (
           <Button onClick={onOpen}>Sync Account</Button>

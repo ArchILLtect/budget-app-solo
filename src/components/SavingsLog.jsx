@@ -12,21 +12,33 @@ export default function SavingsLog() {
   const showInputs = useBudgetStore((s) => s.showSavingsLogInputs);
   const setShowInputs = useBudgetStore((s) => s.setShowSavingsLogInputs);
   const selectedMonth = useBudgetStore((s) => s.selectedMonth);
+  const savingsGoals = useBudgetStore((s) => s.savingsGoals);
   const savingsLogs = useBudgetStore((s) => s.savingsLogs);
   const addSavingsLog = useBudgetStore((s) => s.addSavingsLog);
   const deleteSavingsEntry = useBudgetStore((s) => s.deleteSavingsEntry);
   const resetSavingsLog = useBudgetStore((s) => s.resetSavingsLog);
   const logsForMonth = savingsLogs[selectedMonth] || [];
+  const [selectedGoal, setSelectedGoal] = useState(savingsGoals[0]?.id || "");
   const [amount, setAmount] = useState("");
   const bg = useColorModeValue('white', 'gray.700');
   const toast = useToast();
   const totalSavings = logsForMonth.reduce((sum, e) => sum + (e.amount || 0), 0) || 0;
+  const goal = savingsGoals.find((g) => g.id === selectedGoal);
+  const logsForGoal = Object.values(savingsLogs)
+    .flat()
+    .filter((log) => log.goalId === selectedGoal);
 
+  const totalForGoal = logsForGoal.reduce((sum, e) => sum + (e.amount || 0), 0);
+  const remaining = Math.max(goal?.amount - totalForGoal, 0);
+  const goalComplete = remaining <= 0;
+
+  // TODO: Clamp the value here also.
   const handleAdd = () => {
     const value = parseFloat(amount);
     if (!value || value <= 0) return;
 
     addSavingsLog(selectedMonth, {
+      goalId: selectedGoal,
       amount: value,
       date: dayjs().format("YYYY-MM-DD"),
     });
@@ -67,7 +79,9 @@ export default function SavingsLog() {
                         {entry.date}
                       </Text>
                     </VStack>
-                    <Text>For: {entry.id}</Text>
+                    <Text>
+                      {savingsGoals.find((g) => g.id === entry.goalId)?.name || 'unnamed'}
+                    </Text>
                     <Button
                       size="xs"
                       colorScheme="red"
@@ -80,25 +94,6 @@ export default function SavingsLog() {
                 </ListItem>
               ))}
             </List>
-            <Stack mt={10} spacing={3}>
-              <Flex justifyContent="space-between" alignItems="center" mb={3}>
-                <Input
-                  type="number"
-                  placeholder="Enter amount"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  width={300}
-                />
-                <Select width={300}>
-                  {/* TODO: Need to add options based on existing Savings Goals */}
-                  <option>Yearly</option>
-                </Select>
-                <Button colorScheme="teal" onClick={handleAdd}>
-                  Add Entry
-                </Button>
-              </Flex>
-              <hr style={{marginTop: 15 + "px", marginBottom: 15 + "px"}}/>
-            </Stack>
             {/* Reset Button */}
             <Center>
               <Button
@@ -113,10 +108,45 @@ export default function SavingsLog() {
             </Center>
           </Box>
         )}
+        <Stack mt={10} spacing={3}>
+          <Flex justifyContent="space-between" alignItems="center" mb={3}>
+            <Input
+              type="number"
+              placeholder="Enter amount"
+              value={amount}
+              onChange={(e) => {
+                const raw = parseFloat(e.target.value);
+                if (isNaN(raw)) return setAmount("");
+                const clamped = Math.min(raw, remaining);
+                setAmount(clamped);
+              }}
+              width={300}
+              max={remaining}
+              isDisabled={goalComplete}
+            />
+            <Select
+              width={300}
+              value={selectedGoal}
+              onChange={(e) => setSelectedGoal(e.target.value)}
+            >
+              {savingsGoals.map((goal) => (
+                  <option key={goal.id} value={goal.id}>{goal.name}</option>
+              ))}
+            </Select>
+            <Button colorScheme="teal" onClick={handleAdd} isDisabled={goalComplete}>
+              Add Entry
+            </Button>
+          </Flex>
+          <Center>
+            <Text fontSize="sm" color={goalComplete ? 'green.600' : 'orange.500'}>
+              {goalComplete
+                ? `✅ Goal complete!`
+                : `⚠️ $${remaining.toLocaleString()} remaining to complete "${goal?.name}"`}
+            </Text>
+          </Center>
+          <hr style={{marginTop: 15 + "px", marginBottom: 15 + "px"}}/>
+        </Stack>
       </Collapse>
-
-
-
     </Box>
   );
 }

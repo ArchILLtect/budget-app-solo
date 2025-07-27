@@ -79,7 +79,7 @@ export const useBudgetStore = create(
             showExpenseInputs: true,
             showSavingsLogInputs: true,
             showGoalInputs: true,
-            savingsGoal: 10000,
+            savingsGoals: [{ id: 'yearly', name: 'Yearly Savings Goal', amount: 10000 }],
             savingsLogs: {}, // key: '2025-07', value: [{ amount, date }]
             monthlyPlans: {},
             // 📊 Actuals for the month
@@ -94,18 +94,45 @@ export const useBudgetStore = create(
             setShowGoalInputs: (value) => set(() => ({ showGoalInputs: value })),
             setSelectedMonth: (month) => set(() => ({ selectedMonth: month })),
             setFilingStatus: (value) => set(() => ({ filingStatus: value })),
-            setSavingsGoal: (goal) => set(() => ({ savingsGoal: goal })),
             resetSavingsLogs: () => set(() => ({ savingsLogs: {} })),
             selectIncomeSource: (id) => set(() => ({ selectedSourceId: id })),
             setSavingsMode: (mode) => set(() => ({ savingsMode: mode })),
             setCustomSavings: (value) => set(() => ({ customSavings: value })),
             setScenario: (name) => set({ currentScenario: name }),
-            getTotalSavingsLogged: () => {
-                const { savingsLogs } = useBudgetStore.getState();
-                return Object.values(savingsLogs)
-                    .flat()
-                    .reduce((sum, entry) => sum + (entry.amount || 0), 0);
-            },
+            // getTotalSavingsLogged: () => {
+            //     const { savingsLogs } = useBudgetStore.getState();
+            //     return Object.values(savingsLogs)
+            //         .flat()
+            //         .reduce((sum, entry) => sum + (entry.amount || 0), 0);
+            // },
+            addSavingsGoal: (goal) =>
+                set((state) => {
+                    const newGoal = {
+                        id: goal.id || crypto.randomUUID(),
+                        ...goal,
+                        createdAt: new Date().toISOString(),
+                    };
+                    const updated = [...state.savingsGoals, newGoal];
+                    return {
+                        savingsGoals: updated,
+                    };
+                }),
+            removeSavingsGoal: (id) =>
+                set((state) => {
+                    const updated = state.savingsGoals.filter((e) => e.id !== id);
+                    return {
+                        savingsGoals: updated,
+                    };
+                }),
+            updateSavingsGoal: (id, newData) =>
+                set((state) => {
+                    const updated = state.savingsGoals.map((e) =>
+                        e.id === id ? { ...e, ...newData } : e
+                    );
+                    return {
+                        savingsGoals: updated,
+                    };
+                }),
             addSavingsLog: (month, entry) =>
                 set((state) => {
                     const logs = state.savingsLogs[month] || [];

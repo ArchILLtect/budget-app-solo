@@ -79,3 +79,6 @@ Add AI-based spending advice using OpenAI API
 Gamify savings (progress bar + rewards)
 
 Build native PWA or mobile app version
+
+Attributions:
+Wallet icon: Arkinasi @ Flaticon - <a href="https://www.flaticon.com/free-icons/business-and-finance" title="business and finance icons">Business and finance icons created by Arkinasi - Flaticon</a>

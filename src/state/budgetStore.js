@@ -11,6 +11,7 @@ export const useBudgetStore = create(
     persist(
         (set) => ({
             currentPage: 'planner', // or null initially
+            user: null, // User object will be set after login
             filingStatus: 'headOfHousehold', // 'single' | 'marriedSeparate' | 'marriedJoint' | 'headOfHousehold'
             incomeSources: [
                 {
@@ -84,7 +85,12 @@ export const useBudgetStore = create(
             monthlyPlans: {},
             // 📊 Actuals for the month
             monthlyActuals: {},
+            sessionExpired: false,
+            hasInitialized: false,
+            setSessionExpired: (value) => set({ sessionExpired: value }),
+            setHasInitialized: (value) => set({ hasInitialized: value }),
             setCurrentPage: (page) => set(() => ({ currentPage: page })),
+            setUser: (user) => set(() => ({ user })),
             setShowPlanInputs: (value) => set(() => ({ showPlanInputs: value })),
             setShowActualInputs: (value) => set(() => ({ showActualInputs: value })),
             setShowIncomeInputs: (value) => set(() => ({ showIncomeInputs: value })),

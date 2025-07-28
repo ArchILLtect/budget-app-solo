@@ -82,3 +82,13 @@ Build native PWA or mobile app version
 
 Attributions:
 Wallet icon: Arkinasi @ Flaticon - <a href="https://www.flaticon.com/free-icons/business-and-finance" title="business and finance icons">Business and finance icons created by Arkinasi - Flaticon</a>
+
+Auth system enhancments:
+Feature Priority Notes
+🔁 Refresh Tokens Low–Med Not needed unless sessions must last > 1hr+
+🧪 Password reset flow Med Add “forgot password” with OTP/email later
+📬 Email verification Low Useful for future SaaS-like functionality
+🔒 Role-based route guards Med If you want /admin pages
+🗂️ AuthContext alternative Low Zustand already handles this nicely
+🚫 Global 401 handler Med Auto-logout if /me fails on protected fetch
+🔄 Sync login between tabs Low Broadcast logout across open windows

@@ -21,6 +21,7 @@ export default function IncomeCalculator({ origin = 'Planner', selectedMonth = n
   const addSource = useBudgetStore((s) => s.addIncomeSource)
   const setFilingStatus = useBudgetStore((s) => s.setFilingStatus)
   const grossTotal = useBudgetStore.getState().getTotalGrossIncome();
+  const mothlyActuals = useBudgetStore((s) => s.monthlyActuals[selectedMonth]);
 
   const activeSource = sources.find((s) => s.id === selectedId) || sources[0] || {}
   const { net, breakdown } = useBudgetStore.getState().getTotalNetIncome();
@@ -68,7 +69,15 @@ export default function IncomeCalculator({ origin = 'Planner', selectedMonth = n
         {!isTracker &&
           <Button variant={'outline'} colorScheme="blue" onClick={() => handleTempButton()}>Use Fixed Income</Button>
         }
-        <Heading size="md">${net.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Heading>
+        {!isTracker ? (
+          <Heading size="md">${(net/12).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Heading>
+        ) : (
+          <Heading size="md">
+            {mothlyActuals?.actualTotalNetIncome
+              ? `$${mothlyActuals.actualTotalNetIncome.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+              : 'No Actual Income Yet'}
+          </Heading>
+        )}
       </Flex>
       <Flex justifyContent={'end'} my={2}>
         <Button size="xs" variant="link" colorScheme="blue" ml={2} onClick={() => setShowIncomeInputs(!showIncomeInputs)}>

@@ -23,10 +23,6 @@ export default function NavBar() {
       <Flex h={8} alignItems={'center'} justifyContent={'space-between'}>
         <Heading size="md" color="white">Budgeteer</Heading>
 
-        {currentPage === 'accounts' && (
-          <Button onClick={onOpen}>Sync Account</Button>
-        )}
-        <AccountSyncModal isOpen={isOpen} onClose={onClose} />
         <HStack as="nav" spacing={6}>
           <Link
             as={RouterLink}

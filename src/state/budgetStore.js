@@ -87,6 +87,26 @@ export const useBudgetStore = create(
             monthlyActuals: {},
             sessionExpired: false,
             hasInitialized: false,
+            syncedAccounts: [],
+            addSyncedAccount: (account) =>
+                set((state) => ({
+                    syncedAccounts: [
+                        ...state.syncedAccounts,
+                        {
+                            id: account.id || crypto.randomUUID(),
+                            name: account.name || 'Unnamed Account',
+                            source: account.source || 'csv',
+                            importedAt: new Date().toISOString(),
+                            transactions: account.transactions || [],
+                            fileName: account.fileName || '',
+                        },
+                    ],
+                })),
+            removeSyncedAccount: (id) =>
+                set((state) => ({
+                    syncedAccounts: state.syncedAccounts.filter((acct) => acct.id !== id),
+                })),
+            clearSyncedAccounts: () => set(() => ({ syncedAccounts: [] })),
             setSessionExpired: (value) => set({ sessionExpired: value }),
             setHasInitialized: (value) => set({ hasInitialized: value }),
             setCurrentPage: (page) => set(() => ({ currentPage: page })),
@@ -261,6 +281,16 @@ export const useBudgetStore = create(
                         },
                     };
                 }),
+            updateMonthlyActuals: (month, updates) =>
+                set((state) => ({
+                    monthlyActuals: {
+                        ...state.monthlyActuals,
+                        [month]: {
+                            ...state.monthlyActuals[month],
+                            ...updates,
+                        },
+                    },
+                })),
             updateMonthlyIncomeActuals: (month, id, newData) =>
                 set((state) => {
                     const existing = state.monthlyActuals[month];

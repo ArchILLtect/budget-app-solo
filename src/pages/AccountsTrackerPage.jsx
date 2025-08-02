@@ -1,6 +1,7 @@
 // Coming Soon. This file is the page of the accounts tracker feature, which will allow users to track their accounts and balances. It will include components for displaying account summaries, adding transactions, and visualizing account activity.
 
 import { Box, Heading, Center } from '@chakra-ui/react'
+import AccountsTracker from '../features/accounts/AccountsTracker'
 
 
 function AccountsTrackerPage() {
@@ -13,6 +14,7 @@ function AccountsTrackerPage() {
         <Center mb={4}>
           <Heading>Accounts Tracker</Heading>
         </Center>
+        <AccountsTracker />
       </Box>
     </Box>
   )

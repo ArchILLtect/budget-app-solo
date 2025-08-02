@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import {
   Box, Button, FormControl, FormLabel, Heading, Input, Checkbox, Text,
-  VStack, useToast
+  Flex, VStack, useToast
 } from '@chakra-ui/react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useBudgetStore } from '../state/budgetStore';
@@ -39,75 +39,69 @@ export default function LoginPage() {
     setFormData((prevData) => ({ ...prevData, [name]: value }));
   };
 
-  const attemptLogin = async (ip) => {
+async function retryLoginRequest(ip, maxRetries = 3, delay = 500) {
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      const response = await axios.post(`${API_BASE_URL}/login2`, {
+        ...formData,
+        ip,
+      });
 
-    const response = await axios.post(`${API_BASE_URL}/login2`, {
-      ...formData,
-      ip
-    });
+      return response.data; // ✅ success path
+    } catch (err) {
+      const is502 = err.response?.status === 502;
+      if (!is502 || attempt === maxRetries - 1) throw err;
 
-    const token = response.data.jwt;
-    const user = response.data.user;
+      // Optional: Show user-friendly message for retry
+      toast({
+        title: `Login attempt ${attempt + 1} failed. Retrying...`,
+        description: "AWS may be waking up. Please wait...",
+        status: "warning",
+        duration: 3000,
+        isClosable: true,
+      });
 
-    login(token, user);
-    setUser(user);
-    if (window.opener) {
-      window.opener.postMessage({ type: 'loginSuccess' }, window.location.origin);
-      window.close(); // Close popup
+      await new Promise((res) => setTimeout(res, delay));
     }
+  }
+}
 
-    toast({ title: 'Logged in!', status: 'success', duration: 2000 });
+const handleLogin = async (e) => {
+  e.preventDefault();
+  setLoading(true);
+  const start = Date.now();
 
-    const userLevel = user?.role ? roleHierarchy[user.role] ?? 0 : 0;
-
-    if (userLevel >= roleHierarchy.admin ) {
-      navigate('/planner');
-    } else {
-      navigate('/planner');
-    }
-  };
-
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    const start = Date.now();
-
+  try {
     const ipResponse = await fetch("https://api.ipify.org?format=json");
     const { ip } = await ipResponse.json();
 
-    try {
-      setLoading(true);
-      await attemptLogin(ip);
-    } catch (error) {
-      const isServerError = error.response?.status === 500;
+    const { jwt: token, user } = await retryLoginRequest(ip);
 
-      if (isServerError) {
-        toast({ title: "Server issue. Retrying login...", status: "warning", duration: 2000 });
-        setTimeout(async () => {
-          try {
-            await attemptLogin(ip);
-          } catch (retryErr) {
-            toast({ title: "Retry failed. Try again later.", status: "error", duration: 2000 });
-            console.error("Retry login failed:", retryErr);
-          } finally {
-            const elapsed = Date.now() - start;
-            const remaining = Math.max(0, 500 - elapsed);
-            setTimeout(() => setLoading(false), remaining);
-          }
-        }, 1000);
-      } else {
-        toast({
-          title: error.response?.data?.message || "Login failed",
-          status: "error",
-          duration: 3000,
-        });
-        console.error("Login failed:", error);
-      }
-    } finally {
-      const elapsed = Date.now() - start;
-      const remaining = Math.max(0, 500 - elapsed);
-      setTimeout(() => setLoading(false), remaining);
+    login(token, user);
+    setUser(user);
+
+    if (window.opener) {
+      window.opener.postMessage({ type: 'loginSuccess' }, window.location.origin);
+      window.close();
     }
-  };
+
+    toast({ title: "Logged in!", status: "success", duration: 2000 });
+
+    const userLevel = user?.role ? roleHierarchy[user.role] ?? 0 : 0;
+    navigate(userLevel >= roleHierarchy.admin ? "/planner" : "/planner");
+  } catch (error) {
+    toast({
+      title: error.response?.data?.message || "Login failed",
+      status: "error",
+      duration: 3000,
+    });
+    console.error("Login failed:", error);
+  } finally {
+    const elapsed = Date.now() - start;
+    const remaining = Math.max(0, 500 - elapsed);
+    setTimeout(() => setLoading(false), remaining);
+  }
+};
 
   const togglePassword = () => {
     setShowPassword((prev) => !prev);
@@ -120,7 +114,19 @@ export default function LoginPage() {
       </Heading>
 
       {loading ? (
-        <LoadingSpinner />
+          <Flex
+            pos="fixed"
+            top={0}
+            left={0}
+            w="100vw"
+            h="100vh"
+            zIndex="modal"
+            bg="rgba(0,0,0,0.4)"
+            justify="center"
+            align="center"
+          >
+            <LoadingSpinner />
+          </Flex>
       ) : (
         <VStack spacing={4} align="stretch" as="form" onSubmit={handleLogin}>
           <FormControl>

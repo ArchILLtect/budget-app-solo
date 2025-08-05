@@ -9,8 +9,8 @@ import { useBudgetStore } from "../../state/budgetStore";
 import dayjs from "dayjs";
 import {
   getAvailableMonths, getMonthlyTotals,
-  getTransactionKey, getUniqueTransactions,
-  normalizeTransactionAmount
+  getUniqueTransactions, normalizeTransactionAmount,
+  getSavingsKey
 } from '../../utils/storeHelpers';
 
 export default function AccountsTracker() {
@@ -76,6 +76,20 @@ export default function AccountsTracker() {
 
                       const handleApplyToBudget = () => {
                         const store = useBudgetStore.getState();
+                        // Ensure the month exists in monthlyActuals
+                        if (!store.monthlyActuals[month]) {
+                          useBudgetStore.setState((state) => ({
+                            monthlyActuals: {
+                              ...state.monthlyActuals,
+                              [month]: {
+                                actualExpenses: [],
+                                actualFixedIncomeSources: [],
+                                actualTotalNetIncome: 0,
+                                customSavings: 0,
+                              },
+                            },
+                          }));
+                        }
                         const existing = store.monthlyActuals[month] || {};
                         const expenses = existing.actualExpenses || [];
                         const income = (existing.actualFixedIncomeSources || []).filter(
@@ -107,7 +121,8 @@ export default function AccountsTracker() {
                         
                         const newSavings = getUniqueTransactions(
                           savings,
-                          monthRows.filter((tx) => tx.type === "savings")
+                          monthRows.filter((tx) => tx.type === "savings"),
+                          getSavingsKey
                         );
 
                         newExpenses.forEach((e) =>

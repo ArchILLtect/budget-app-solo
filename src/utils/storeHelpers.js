@@ -57,14 +57,18 @@ export const getMonthlyTotals = (account, month) => {
 };
 
 export const getTransactionKey = (tx) => {
-    return `${tx.date}|${parseFloat(tx.amount).toFixed(2)}|${(tx.description || '')
-        .toLowerCase()
-        .trim()}`;
+    const amt = normalizeTransactionAmount(tx.amount) || 0;
+    return `${tx.date}|${amt.toFixed(2)}|${(tx.description || '').toLowerCase().trim()}`;
 };
 
-export const getUniqueTransactions = (existing, incoming) => {
-    const seen = new Set(existing.map(getTransactionKey));
-    return incoming.filter((tx) => !seen.has(getTransactionKey(tx)));
+export const getSavingsKey = (tx) => {
+    const amt = normalizeTransactionAmount(tx.amount) || 0;
+    return `${tx.date}|${amt.toFixed(2)}`;
+};
+
+export const getUniqueTransactions = (existing, incoming, getKey = getTransactionKey) => {
+    const seen = new Set(existing.map(getKey));
+    return incoming.filter((tx) => !seen.has(getKey(tx)));
 };
 
 export const normalizeTransactionAmount = (tx) => {

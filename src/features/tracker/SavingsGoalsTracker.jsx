@@ -13,17 +13,16 @@ export default function SavingsGoalsTracker() {
   const selectedYear = dayjs(selectedMonth).format('YYYY');
   //const currentMonthKey = dayjs().format('YYYY-MM');
   //const monthlyActuals = useBudgetStore((s) => s.monthlyActuals[currentMonthKey]);
-  const savingsGoal = useBudgetStore((s) => s.savingsGoal);
+  //const savingsGoal = useBudgetStore((s) => s.savingsGoal);
   const resetSavingsLogs = useBudgetStore((s) => s.resetSavingsLogs);
   const savingsLogs = useBudgetStore((s) => s.savingsLogs);
   const showGoalInputs = useBudgetStore((s) => s.showGoalInputs);
   const setShowGoalInputs = useBudgetStore((s) => s.setShowGoalInputs);
-  const savingsGoals = useBudgetStore((s) => s.savingsGoals);
+  const goals = useBudgetStore((s) => s.savingsGoals);
   const addSavingsGoal = useBudgetStore((s) => s.addSavingsGoal);
   const removeSavingsGoal = useBudgetStore((s) => s.removeSavingsGoal);
   const updateSavingsGoal = useBudgetStore((s) => s.updateSavingsGoal);
   const [editGoalId, setEditGoalId] = useState(null);
-  const goals = savingsGoals;
   const toast = useToast();
   const totalSaved = Object.values(savingsLogs)
     .flat()
@@ -84,7 +83,8 @@ export default function SavingsGoalsTracker() {
             <Stat mb={4} textAlign="center">
               <StatLabel fontSize={'lg'}>{goal.name} {goal.id === 'yearly' ? selectedYear : ''}</StatLabel>
               <StatNumber color="green.500">
-                ${total.toLocaleString(undefined, { minimumFractionDigits: 2 })} / ${goal.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                {/* ${total?.toLocaleString(undefined, { minimumFractionDigits: 2 })} / ${goal?.amount?.toLocaleString(undefined, { minimumFractionDigits: 2 })} */}
+                ${Number.isFinite(total) ? total.toLocaleString(undefined, { minimumFractionDigits: 2 }) : "--" } / ${Number.isFinite(goal?.amount) ? goal.amount.toLocaleString(undefined, { minimumFractionDigits: 2 }) : "--"}
               </StatNumber>
             </Stat>
             <Button size="xs" colorScheme="red" onClick={() => resetGoal()}>Reset</Button>

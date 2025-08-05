@@ -89,6 +89,14 @@ export const useBudgetStore = create(
             hasInitialized: false,
             syncedAccounts: [],
             isDemoUser: false,
+            accountMappings: {},
+            setAccountMapping: (accountNumber, mapping) =>
+                set((state) => ({
+                    accountMappings: {
+                        ...state.accountMappings,
+                        [accountNumber]: mapping,
+                    },
+                })),
             setIsDemoUser: (val) => set({ isDemoUser: val }),
             addSyncedAccount: (account) =>
                 set((state) => ({
@@ -127,12 +135,6 @@ export const useBudgetStore = create(
             setSavingsMode: (mode) => set(() => ({ savingsMode: mode })),
             setCustomSavings: (value) => set(() => ({ customSavings: value })),
             setScenario: (name) => set({ currentScenario: name }),
-            // getTotalSavingsLogged: () => {
-            //     const { savingsLogs } = useBudgetStore.getState();
-            //     return Object.values(savingsLogs)
-            //         .flat()
-            //         .reduce((sum, entry) => sum + (entry.amount || 0), 0);
-            // },
             addSavingsGoal: (goal) =>
                 set((state) => {
                     const newGoal = {

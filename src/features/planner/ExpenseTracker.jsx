@@ -81,10 +81,10 @@ export default function ExpenseTracker({ origin = 'Planner', selectedMonth = nul
             {expenses.map((expense) => (
               <HStack key={expense.id}>
                 <Input
-                  value={expense.name}
-                  isInvalid={!expense.name.trim()}
+                  value={expense.description}
+                  isInvalid={!expense?.description?.trim()}
                   onChange={(e) =>
-                    updateExpense(expense.id, { name: e.target.value })
+                    updateExpense(expense.id, { description: e.target.value })
                   }
                   placeholder="Expense name"
                 />

@@ -33,7 +33,7 @@ export default function IncomeCalculator({ origin = 'Planner', selectedMonth = n
     const id = crypto.randomUUID(); // generate a new ID here
     const newSource = {
       id,
-      label: `Income ${sources.length + 1}`,
+      description: `Income ${sources.length + 1}`,
       type: 'hourly',
       hourlyRate: 0,
       hoursPerWeek: 0,
@@ -119,7 +119,7 @@ export default function IncomeCalculator({ origin = 'Planner', selectedMonth = n
             >
               <TabList>
                 {sources.map((source) => (
-                  <Tab key={source.id}>{source.label}</Tab>
+                  <Tab key={source.id}>{source.description}</Tab>
                 ))}
                 <Tab onClick={() => handleAddSource()}>+ Add</Tab>
               </TabList>

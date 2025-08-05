@@ -54,10 +54,10 @@ export default function AddFixedIncomeSource({ origin = 'Planner', selectedMonth
         {sources.map((source) => (
             <HStack key={source.id}>
             <Input
-                value={source.name || source.description}
-                isInvalid={!source.name.trim()}
+                value={source.description}
+                isInvalid={!source?.description?.trim()}
                 onChange={(e) =>
-                  updateSource(source.id, { name: e.target.value })
+                  updateSource(source.id, { description: e.target.value })
                 }
                 placeholder="Source name"
             />

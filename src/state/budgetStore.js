@@ -16,7 +16,7 @@ export const useBudgetStore = create(
             incomeSources: [
                 {
                     id: 'primary',
-                    label: 'Primary Job',
+                    description: 'Primary Job',
                     type: 'hourly',
                     hourlyRate: 25,
                     hoursPerWeek: 40,
@@ -31,7 +31,7 @@ export const useBudgetStore = create(
                     incomeSources: [
                         {
                             id: 'primary',
-                            label: 'Primary Job',
+                            description: 'Primary Job',
                             type: 'hourly',
                             hourlyRate: 25,
                             hoursPerWeek: 40,
@@ -39,7 +39,7 @@ export const useBudgetStore = create(
                             state: 'WI',
                         },
                     ],
-                    expenses: [{ id: 'rent', name: 'Rent', amount: 0 }],
+                    expenses: [{ id: 'rent', description: 'Rent', amount: 0 }],
                     savingsMode: '20',
                     filingStatus: 'single', // 'single' | 'marriedSeparate' | 'marriedJoint' | 'headOfHousehold'
                 },
@@ -48,7 +48,7 @@ export const useBudgetStore = create(
                     incomeSources: [
                         {
                             id: 'primary',
-                            label: 'Primary Job',
+                            description: 'Primary Job',
                             type: 'hourly',
                             hourlyRate: 25,
                             hoursPerWeek: 20,
@@ -57,16 +57,16 @@ export const useBudgetStore = create(
                             createdAt: new Date().toISOString(),
                         },
                     ],
-                    expenses: [{ id: 'rent', name: 'Rent', amount: 1000 }],
+                    expenses: [{ id: 'rent', description: 'Rent', amount: 1000 }],
                     filingStatus: 'single', // 'single' | 'marriedSeparate' | 'marriedJoint' | 'headOfHousehold'
                     customSavings: 0,
                     savingsMode: '10',
                 },
             },
             expenses: [
-                { id: 'rent', name: 'Rent', amount: 1600 },
-                { id: 'groceries', name: 'Groceries', amount: 400 },
-                { id: 'phone', name: 'Phone', amount: 100 },
+                { id: 'rent', description: 'Rent', amount: 1600 },
+                { id: 'groceries', description: 'Groceries', amount: 400 },
+                { id: 'phone', description: 'Phone', amount: 100 },
             ],
             savingsMode: 'none', // 'none' | '10' | '20' | 'custom'
             customSavings: 0,
@@ -88,6 +88,8 @@ export const useBudgetStore = create(
             sessionExpired: false,
             hasInitialized: false,
             syncedAccounts: [],
+            isDemoUser: false,
+            setIsDemoUser: (val) => set({ isDemoUser: val }),
             addSyncedAccount: (account) =>
                 set((state) => ({
                     syncedAccounts: [
@@ -195,7 +197,7 @@ export const useBudgetStore = create(
                                 [
                                     {
                                         id: 'main',
-                                        name: 'Main (Plan)',
+                                        description: 'Main (Plan)',
                                         amount: +planData.netIncome?.toFixed(2) || 0,
                                     },
                                 ] || []
@@ -579,7 +581,7 @@ export const useBudgetStore = create(
                     incomeSources: [
                         {
                             id: 'primary',
-                            label: 'Primary Job',
+                            description: 'Primary Job',
                             type: 'hourly',
                             hourlyRate: 25,
                             hoursPerWeek: 40,
@@ -589,7 +591,7 @@ export const useBudgetStore = create(
                         },
                     ],
                     selectedSourceId: 'primary',
-                    expenses: [{ id: 'rent', name: 'Rent', amount: 0 }],
+                    expenses: [{ id: 'rent', description: 'Rent', amount: 0 }],
                     savingsMode: 'none',
                     customSavings: 0,
                     filingStatus: 'headOfHousehold', // 'single' | 'married' | 'head'

@@ -9,7 +9,7 @@ export default function ExpensePie() {
   const chartData = expenses
     .filter(e => e.amount > 0)
     .map((e, i) => ({
-      name: e.name,
+      description: e.description,
       value: e.amount,
     }))
 
@@ -22,7 +22,7 @@ export default function ExpensePie() {
         <Pie
           data={chartData}
           dataKey="value"
-          nameKey="name"
+          nameKey="description"
           cx="50%"
           cy="50%"
           outerRadius={100}

@@ -8,6 +8,8 @@ import { useState } from "react";
 import { useBudgetStore } from "../state/budgetStore";
 import dayjs from "dayjs";
 
+// TODO: Refactor (see other TODO) savings log entry amount input's max prop to use selected goal's total goal amount.
+
 export default function SavingsLog() {
   const showInputs = useBudgetStore((s) => s.showSavingsLogInputs);
   const setShowInputs = useBudgetStore((s) => s.setShowSavingsLogInputs);
@@ -121,7 +123,8 @@ export default function SavingsLog() {
                 setAmount(clamped);
               }}
               width={300}
-              max={remaining}
+              /* TODO: Refactor here. */
+              max={remaining ? remaining : 10000}
               isDisabled={goalComplete}
             />
             <Select

@@ -13,6 +13,9 @@ export const roleHierarchy = {
 export async function getCurrentUser() {
     const token = localStorage.getItem('token');
     if (!token) return null;
+    if (token === 'demo-token') {
+        return { username: 'Demo User', role: 'guest' }; // special case for demo user
+    }
 
     try {
         const res = await axios.get(`${API_BASE_URL}/me`, {

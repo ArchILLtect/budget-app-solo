@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 
 export const useAuth = () => {
     const user = useBudgetStore((s) => s.user);
+    const setIsDemoUser = useBudgetStore((s) => s.setIsDemoUser);
     const navigate = useNavigate();
 
     const logoutUser = () => {
@@ -12,6 +13,7 @@ export const useAuth = () => {
         localStorage.removeItem('userData');
         useBudgetStore.getState().setUser(null);
         useBudgetStore.getState().setSessionExpired(false); // clear overlay
+        setIsDemoUser(false);
         navigate('/login');
     };
 

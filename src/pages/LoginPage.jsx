@@ -6,6 +6,7 @@ import {
 import { useNavigate, Link } from 'react-router-dom';
 import { useBudgetStore } from '../state/budgetStore';
 import { getCurrentUser, roleHierarchy, login } from '../utils/auth';
+import { seedDemoState } from '../utils/demoUtils';
 import axios from 'axios';
 import LoadingSpinner from '../components/LoadingSpinner';
 
@@ -22,6 +23,7 @@ export default function LoginPage() {
   const toast = useToast();
   const navigate = useNavigate();
   const setUser = useBudgetStore((s) => s.setUser);
+  const setIsDemoUser = useBudgetStore((s) => s.setIsDemoUser);
 
   useEffect(() => {
     const init = async () => {
@@ -39,69 +41,91 @@ export default function LoginPage() {
     setFormData((prevData) => ({ ...prevData, [name]: value }));
   };
 
-async function retryLoginRequest(ip, maxRetries = 3, delay = 500) {
-  for (let attempt = 0; attempt < maxRetries; attempt++) {
+  async function retryLoginRequest(ip, maxRetries = 3, delay = 500) {
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        const response = await axios.post(`${API_BASE_URL}/login2`, {
+          ...formData,
+          ip,
+        });
+
+        return response.data; // ✅ success path
+      } catch (err) {
+        const is502 = err.response?.status === 502;
+        if (!is502 || attempt === maxRetries - 1) throw err;
+
+        // Optional: Show user-friendly message for retry
+        toast({
+          title: `Login attempt ${attempt + 1} failed. Retrying...`,
+          description: "AWS may be waking up. Please wait...",
+          status: "warning",
+          duration: 3000,
+          isClosable: true,
+        });
+
+        await new Promise((res) => setTimeout(res, delay));
+      }
+    }
+  }
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    const start = Date.now();
+
     try {
-      const response = await axios.post(`${API_BASE_URL}/login2`, {
-        ...formData,
-        ip,
-      });
+      const ipResponse = await fetch("https://api.ipify.org?format=json");
+      const { ip } = await ipResponse.json();
 
-      return response.data; // ✅ success path
-    } catch (err) {
-      const is502 = err.response?.status === 502;
-      if (!is502 || attempt === maxRetries - 1) throw err;
+      const { jwt: token, user } = await retryLoginRequest(ip);
 
-      // Optional: Show user-friendly message for retry
+      login(token, user);
+      setUser(user);
+
+      if (window.opener) {
+        window.opener.postMessage({ type: 'loginSuccess' }, window.location.origin);
+        window.close();
+      }
+
+      toast({ title: "Logged in!", status: "success", duration: 2000 });
+
+      const userLevel = user?.role ? roleHierarchy[user.role] ?? 0 : 0;
+      navigate(userLevel >= roleHierarchy.admin ? "/planner" : "/planner");
+    } catch (error) {
       toast({
-        title: `Login attempt ${attempt + 1} failed. Retrying...`,
-        description: "AWS may be waking up. Please wait...",
-        status: "warning",
+        title: error.response?.data?.message || "Login failed",
+        status: "error",
         duration: 3000,
-        isClosable: true,
       });
-
-      await new Promise((res) => setTimeout(res, delay));
+      console.error("Login failed:", error);
+    } finally {
+      const elapsed = Date.now() - start;
+      const remaining = Math.max(0, 500 - elapsed);
+      setIsDemoUser(false);
+      setTimeout(() => setLoading(false), remaining);
     }
-  }
-}
+  };
 
-const handleLogin = async (e) => {
-  e.preventDefault();
-  setLoading(true);
-  const start = Date.now();
+  const handleDemoLogin = () => {
+    setLoading(true);
+    setTimeout(() => {
+      const demoUser = {
+        id: "demo",
+        username: "demo",
+        role: "user",
+        email: "sample@email.com"
+      };
 
-  try {
-    const ipResponse = await fetch("https://api.ipify.org?format=json");
-    const { ip } = await ipResponse.json();
+      login("demo-token", demoUser);
+      setUser(demoUser);
+      seedDemoState(useBudgetStore.setState); // ✅ Seed the app state
+      setIsDemoUser(true);
 
-    const { jwt: token, user } = await retryLoginRequest(ip);
-
-    login(token, user);
-    setUser(user);
-
-    if (window.opener) {
-      window.opener.postMessage({ type: 'loginSuccess' }, window.location.origin);
-      window.close();
-    }
-
-    toast({ title: "Logged in!", status: "success", duration: 2000 });
-
-    const userLevel = user?.role ? roleHierarchy[user.role] ?? 0 : 0;
-    navigate(userLevel >= roleHierarchy.admin ? "/planner" : "/planner");
-  } catch (error) {
-    toast({
-      title: error.response?.data?.message || "Login failed",
-      status: "error",
-      duration: 3000,
-    });
-    console.error("Login failed:", error);
-  } finally {
-    const elapsed = Date.now() - start;
-    const remaining = Math.max(0, 500 - elapsed);
-    setTimeout(() => setLoading(false), remaining);
-  }
-};
+      toast({ title: "Logged in as demo user", status: "success", duration: 2000 });
+      navigate("/planner");
+      setLoading(false);
+    }, 800);
+  };
 
   const togglePassword = () => {
     setShowPassword((prev) => !prev);
@@ -169,6 +193,14 @@ const handleLogin = async (e) => {
             isDisabled={loading}
           >
             Login
+          </Button>
+          <Button
+            onClick={handleDemoLogin}
+            mt={2}
+            colorScheme="green"
+            isDisabled={loading}
+          >
+            Try Demo Mode
           </Button>
         </VStack>
       )}

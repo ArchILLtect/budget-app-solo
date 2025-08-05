@@ -6,6 +6,7 @@ const { toast } = createStandaloneToast();
 
 export const isTokenExpired = (token) => {
     if (!token) return true;
+    if (token === 'demo-token') return false; // special case for demo token
 
     try {
         const decoded = jwtDecode(token); // 👈 use the new named import

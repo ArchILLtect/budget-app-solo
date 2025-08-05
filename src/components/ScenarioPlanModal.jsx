@@ -1,6 +1,6 @@
 import {
   Modal, ModalOverlay, ModalContent, ModalHeader, ModalCloseButton,
-  ModalBody, ModalFooter, Button, Select
+  ModalBody, ModalFooter, Button, Select, Checkbox, useToast
 } from "@chakra-ui/react";
 import { useState } from "react";
 import { useBudgetStore } from "../state/budgetStore";
@@ -8,10 +8,14 @@ import { calculateTotalTaxes, calculateNetIncome } from "../utils/calcUtils";
 
 export default function ScenarioPlanModal({ isOpen, onClose }) {
   const scenarios = useBudgetStore((s) => s.scenarios);
-  const selectedMonth = useBudgetStore((s) => s.selectedMonth);
   const saveMonthlyPlan = useBudgetStore((s) => s.saveMonthlyPlan);
+  const selectedMonth = useBudgetStore((s) => s.selectedMonth);
+  const monthlyActuals = useBudgetStore((s) => s.monthlyActuals);
+  const currentActuals = monthlyActuals[selectedMonth];
 
+  const [applyAsActuals, setApplyAsActuals] = useState(false);
   const [selectedScenario, setSelectedScenario] = useState(Object.keys(scenarios)[0] || "");
+  const toast = useToast();
 
   const handleSave = (e) => {
     const scenario = scenarios[selectedScenario];
@@ -47,6 +51,34 @@ export default function ScenarioPlanModal({ isOpen, onClose }) {
       estLeftover: estLeftover
     });
 
+    /* TODO: Apply to actuals if selected
+    if (applyAsActuals && !currentActuals) {
+      useBudgetStore.getState().updateMonthlyActuals(selectedMonth, {
+        actualFixedIncomeSources: JSON.parse(JSON.stringify(scenario.incomeSources)),
+        actualExpenses: JSON.parse(JSON.stringify(scenario.expenses)),
+        actualTotalNetIncome: netIncome,
+        savingsMode: scenario.savingsMode,
+        customSavings: scenario.customSavings,
+      });
+    }*/
+
+    if (currentActuals) {
+      toast({
+        title: "Plan Saved",
+        description: "Actuals already exist and were not changed.",
+        status: "info",
+        duration: 3000,
+        isClosable: true,
+      });
+    } else {
+      toast({
+        title: "Plan & Actuals Saved",
+        status: "success",
+        duration: 3000,
+        isClosable: true,
+      });
+    }
+
     onClose();
   };
 
@@ -56,7 +88,7 @@ export default function ScenarioPlanModal({ isOpen, onClose }) {
       <ModalContent>
         <ModalHeader>Select a Scenario</ModalHeader>
         <ModalCloseButton />
-          <ModalBody>
+        <ModalBody>
           <Select
             value={selectedScenario}
             onChange={(e) => setSelectedScenario(e.target.value)}
@@ -65,11 +97,21 @@ export default function ScenarioPlanModal({ isOpen, onClose }) {
               <option key={name} value={name}>{name}</option>
             ))}
           </Select>
-          </ModalBody>
-          <ModalFooter>
-            <Button onClick={handleSave} colorScheme="teal" mr={3}>Use Scenario</Button>
-            <Button onClick={onClose}>Cancel</Button>
-          </ModalFooter>
+          {/* TODO: Add scenario checkbox for applying to actuals
+          <Checkbox
+            isChecked={applyAsActuals}
+            onChange={(e) => setApplyAsActuals(e.target.checked)}
+            colorScheme="teal"
+            mt={4}
+          >
+            Also apply this scenario to actuals
+          </Checkbox>*/}
+        </ModalBody>
+
+        <ModalFooter>
+          <Button onClick={handleSave} colorScheme="teal" mr={3}>Use Scenario</Button>
+          <Button onClick={onClose}>Cancel</Button>
+        </ModalFooter>
       </ModalContent>
     </Modal>
   );

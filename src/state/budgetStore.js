@@ -39,7 +39,9 @@ export const useBudgetStore = create(
                             state: 'WI',
                         },
                     ],
-                    expenses: [{ id: 'rent', description: 'Rent', amount: 0 }],
+                    expenses: [
+                        { id: 'rent', name: 'Rent', description: 'Rent', amount: 0 },
+                    ],
                     savingsMode: '20',
                     filingStatus: 'single', // 'single' | 'marriedSeparate' | 'marriedJoint' | 'headOfHousehold'
                 },
@@ -57,16 +59,23 @@ export const useBudgetStore = create(
                             createdAt: new Date().toISOString(),
                         },
                     ],
-                    expenses: [{ id: 'rent', description: 'Rent', amount: 1000 }],
+                    expenses: [
+                        { id: 'rent', name: 'Rent', description: 'Rent', amount: 1000 },
+                    ],
                     filingStatus: 'single', // 'single' | 'marriedSeparate' | 'marriedJoint' | 'headOfHousehold'
                     customSavings: 0,
                     savingsMode: '10',
                 },
             },
             expenses: [
-                { id: 'rent', description: 'Rent', amount: 1600 },
-                { id: 'groceries', description: 'Groceries', amount: 400 },
-                { id: 'phone', description: 'Phone', amount: 100 },
+                { id: 'rent', name: 'Rent', description: 'Rent', amount: 1600 },
+                {
+                    id: 'groceries',
+                    name: 'Groceries',
+                    description: 'Groceries',
+                    amount: 400,
+                },
+                { id: 'phone', name: 'Phone', description: 'Phone', amount: 100 },
             ],
             savingsMode: 'none', // 'none' | '10' | '20' | 'custom'
             customSavings: 0,
@@ -593,7 +602,9 @@ export const useBudgetStore = create(
                         },
                     ],
                     selectedSourceId: 'primary',
-                    expenses: [{ id: 'rent', description: 'Rent', amount: 0 }],
+                    expenses: [
+                        { id: 'rent', name: 'Rent', description: 'Rent', amount: 0 },
+                    ],
                     savingsMode: 'none',
                     customSavings: 0,
                     filingStatus: 'headOfHousehold', // 'single' | 'married' | 'head'

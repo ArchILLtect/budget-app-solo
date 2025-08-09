@@ -13,12 +13,16 @@ import {
 import { useAuth } from '../hooks/useAuth';
 import { useBudgetStore } from '../state/budgetStore';
 import { useLocation } from 'react-router-dom';
+import { isTokenExpired } from '../utils/jwtUtils';
 
 export default function SessionLockOverlay() {
   const sessionExpired = useBudgetStore((s) => s.sessionExpired);
+  const user = useBudgetStore((s) => s.user);
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+  const unlocked = !!user && token && !isTokenExpired(token);
+
   const { logoutUser } = useAuth();
   const location = useLocation();
-
   const params = new URLSearchParams(location.search);
   const bypassLock = params.get("bypassLock") === "true";
 
@@ -39,7 +43,7 @@ export default function SessionLockOverlay() {
     }
   };
 
-  if (!sessionExpired || bypassLock) return null;
+  if (!sessionExpired || bypassLock || unlocked) return null;
 
   return (
     <Modal isOpen={sessionExpired} onClose={() => {}} isCentered closeOnOverlayClick={false} size="lg">

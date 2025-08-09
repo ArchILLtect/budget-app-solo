@@ -7,6 +7,7 @@ import Papa from "papaparse";
 import { useBudgetStore } from "../state/budgetStore";
 import dayjs from "dayjs";
 import { extractVendorDescription } from "../utils/accountUtils";
+import { getTransactionKey, normalizeTransactionAmount } from "../utils/storeHelpers";
 
 //TODO: Add functionality for blocking changes to actuals after applying to budget unless user confirms.
 //TODO: When income applied via account integration, set Plan to 0 and grey it out.
@@ -15,7 +16,7 @@ export default function SyncAccountsModal({ isOpen, onClose }) {
 
   const accountMappings = useBudgetStore((s) => s.accountMappings);
   const setAccountMapping = useBudgetStore((s) => s.setAccountMapping);
-  const addSyncedAccount = useBudgetStore((s) => s.addSyncedAccount);
+  const addOrUpdateAccount = useBudgetStore((s) => s.addOrUpdateAccount);
   const [sourceType, setSourceType] = useState("csv");
   const [csvFile, setCsvFile] = useState(null);
   const [ofxFile, setOfxFile] = useState(null);
@@ -95,12 +96,22 @@ export default function SyncAccountsModal({ isOpen, onClose }) {
   };
 
   const importCsvData = (data) => {
+    const KNOWN_SAVINGS_TRANSFERS = [
+      "Web Branch:TFR TO SV 457397801",
+      "Online Transfer to Savings",
+      "Auto-Save Transfer",
+      "Mobile Transfer to SV",
+      // Add more as needed...
+    ];
+
     const accountGroups = {};
 
     data.forEach((row) => {
       const accountNumber = row.AccountNumber?.trim();
       const accountType = row.AccountType?.trim() || "Unknown";
-
+      const isSavingsTransfer =
+        row.Category?.toLowerCase() === "transfer" &&
+        KNOWN_SAVINGS_TRANSFERS.includes(row.Description?.trim());
       // Skip if account number is missing
       if (!accountNumber) return;
 
@@ -123,10 +134,17 @@ export default function SyncAccountsModal({ isOpen, onClose }) {
       const transaction = {
         id: crypto.randomUUID(),
         date: formattedDate,
-        name: extractVendorDescription(row.Description),
+        origin: 'CSV',
+        name: isSavingsTransfer
+          ? "Transfer to Savings"
+          : extractVendorDescription(row.Description),
         description: row.Description || "Unnamed",
-        amount: amount,
-        type: amount > 0 ? "income" : "expense",
+        amount: isSavingsTransfer ? normalizeTransactionAmount(amount, true) : amount,
+        type: isSavingsTransfer
+          ? "savings"
+          : amount > 0
+            ? "income"
+            : "expense",
         category: row.Category || undefined,
         accountNumber: row.AccountNumber.trim(),
         institution:
@@ -150,12 +168,34 @@ export default function SyncAccountsModal({ isOpen, onClose }) {
     });
 
     const accounts = Object.values(accountGroups);
-    accounts.forEach((acct) => addSyncedAccount(acct));
+    let totalAdded = 0;
+
+    accounts.forEach((acct) => {
+      const accountNumber = acct.accountNumber;
+
+      addOrUpdateAccount(accountNumber, {
+        label: accountMappings[accountNumber]?.label || accountNumber,
+        institution: accountMappings[accountNumber]?.institution || "Unknown",
+        lastSync: new Date().toISOString(),
+      });
+
+      // Get existing keys to compare
+      const store = useBudgetStore.getState();
+      const existing = store.accounts[accountNumber]?.transactions || [];
+      const seen = new Set(existing.map(getTransactionKey));
+
+      const newTxs = acct.transactions.filter((tx) => !seen.has(getTransactionKey(tx)));
+      totalAdded += newTxs.length;
+
+      store.addTransactionsToAccount(accountNumber, newTxs);
+    });
 
     toast({
-      title: `Imported ${accounts.length} account${accounts.length !== 1 ? "s" : ""}`,
-      description: `${accounts.reduce((sum, a) => sum + a.transactions.length, 0)} transactions parsed`,
-      status: "success",
+      title: `Import complete`,
+      description: totalAdded > 0 ?
+        `${totalAdded} new transaction${totalAdded !== 1 ? "s" : ""} added across ${accounts.length} account${accounts.length !== 1 ? "s" : ""}` :
+        'However, no new transactions were added because the import only contained duplicate transactions.',
+      status: totalAdded > 0 ? "success" : "warning",
       duration: 4000,
     });
 

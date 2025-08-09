@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { calculateTotalTaxes, calculateNetIncome } from '../utils/calcUtils';
 import dayjs from 'dayjs';
+import { getTransactionKey } from '../utils/storeHelpers';
 
 // TODO: Allow users to change overtime threshold and tax rates
 
@@ -10,6 +11,12 @@ const currentMonth = dayjs().format('YYYY-MM'); // e.g. "2025-07"
 export const useBudgetStore = create(
     persist(
         (set) => ({
+            ORIGIN_COLOR_MAP: {
+                csv: 'purple',
+                ofx: 'green',
+                plaid: 'red',
+                manual: 'blue',
+            },
             currentPage: 'planner', // or null initially
             user: null, // User object will be set after login
             filingStatus: 'headOfHousehold', // 'single' | 'marriedSeparate' | 'marriedJoint' | 'headOfHousehold'
@@ -96,36 +103,26 @@ export const useBudgetStore = create(
             monthlyActuals: {},
             sessionExpired: false,
             hasInitialized: false,
-            syncedAccounts: [],
             isDemoUser: false,
             accountMappings: {},
-            setAccountMapping: (accountNumber, mapping) =>
-                set((state) => ({
-                    accountMappings: {
-                        ...state.accountMappings,
-                        [accountNumber]: mapping,
-                    },
-                })),
-            setIsDemoUser: (val) => set({ isDemoUser: val }),
-            addSyncedAccount: (account) =>
-                set((state) => ({
-                    syncedAccounts: [
-                        ...state.syncedAccounts,
-                        {
-                            id: account.id || crypto.randomUUID(),
-                            name: account.name || 'Unnamed Account',
-                            source: account.source || 'csv',
-                            importedAt: new Date().toISOString(),
-                            transactions: account.transactions || [],
-                            fileName: account.fileName || '',
-                        },
-                    ],
-                })),
-            removeSyncedAccount: (id) =>
-                set((state) => ({
-                    syncedAccounts: state.syncedAccounts.filter((acct) => acct.id !== id),
-                })),
-            clearSyncedAccounts: () => set(() => ({ syncedAccounts: [] })),
+            accounts: {},
+            savingsReviewQueue: [],
+            isSavingsModalOpen: false,
+            resolveSavingsPromise: null,
+            isConfirmModalOpen: false,
+            isProgressOpen: false,
+            progressCount: 0,
+            progressTotal: 0,
+            openProgress: (total) =>
+                set({ isProgressOpen: true, progressCount: 0, progressTotal: total }),
+            updateProgress: (count) => set({ progressCount: count }),
+            closeProgress: () =>
+                set({ isProgressOpen: false, progressCount: 0, progressTotal: 0 }),
+            setConfirmModalOpen: (open) => set({ isConfirmModalOpen: open }),
+            setSavingsReviewQueue: (entries) => set({ savingsReviewQueue: entries }),
+            clearSavingsReviewQueue: () => set({ savingsReviewQueue: [] }),
+            setSavingsModalOpen: (open) => set({ isSavingsModalOpen: open }),
+            clearAllAccounts: () => set(() => ({ accounts: {} })),
             setSessionExpired: (value) => set({ sessionExpired: value }),
             setHasInitialized: (value) => set({ hasInitialized: value }),
             setCurrentPage: (page) => set(() => ({ currentPage: page })),
@@ -134,8 +131,6 @@ export const useBudgetStore = create(
             setShowActualInputs: (value) => set(() => ({ showActualInputs: value })),
             setShowIncomeInputs: (value) => set(() => ({ showIncomeInputs: value })),
             setShowExpenseInputs: (value) => set(() => ({ showExpenseInputs: value })),
-            setShowSavingsLogInputs: (value) =>
-                set(() => ({ showSavingsLogInputs: value })),
             setShowGoalInputs: (value) => set(() => ({ showGoalInputs: value })),
             setSelectedMonth: (month) => set(() => ({ selectedMonth: month })),
             setFilingStatus: (value) => set(() => ({ filingStatus: value })),
@@ -144,6 +139,55 @@ export const useBudgetStore = create(
             setSavingsMode: (mode) => set(() => ({ savingsMode: mode })),
             setCustomSavings: (value) => set(() => ({ customSavings: value })),
             setScenario: (name) => set({ currentScenario: name }),
+            setIsDemoUser: (val) => set({ isDemoUser: val }),
+            setShowSavingsLogInputs: (value) =>
+                set(() => ({ showSavingsLogInputs: value })),
+            addOrUpdateAccount: (accountNumber, data) =>
+                set((state) => ({
+                    accounts: {
+                        ...state.accounts,
+                        [accountNumber]: {
+                            ...(state.accounts[accountNumber] || {}),
+                            ...data,
+                        },
+                    },
+                })),
+            addTransactionsToAccount: (accountNumber, transactions) =>
+                set((state) => {
+                    const existing = state.accounts[accountNumber]?.transactions || [];
+                    const seen = new Set(existing.map(getTransactionKey)); // use your existing helper
+
+                    const newTxs = transactions.filter(
+                        (tx) => !seen.has(getTransactionKey(tx))
+                    );
+
+                    const updated = [...existing, ...newTxs].sort((a, b) =>
+                        a.date.localeCompare(b.date)
+                    );
+
+                    return {
+                        accounts: {
+                            ...state.accounts,
+                            [accountNumber]: {
+                                ...(state.accounts[accountNumber] || {}),
+                                transactions: updated,
+                            },
+                        },
+                    };
+                }),
+            setAccountMapping: (accountNumber, mapping) =>
+                set((state) => ({
+                    accountMappings: {
+                        ...state.accountMappings,
+                        [accountNumber]: mapping,
+                    },
+                })),
+            removeAccount: (accountNumber) =>
+                set((state) => {
+                    const updated = { ...state.accounts };
+                    delete updated[accountNumber];
+                    return { accounts: updated };
+                }),
             addSavingsGoal: (goal) =>
                 set((state) => {
                     const newGoal = {
@@ -359,16 +403,6 @@ export const useBudgetStore = create(
                         },
                     };
                 }),
-            /*setActualSavingsMode: (month, mode) =>
-                set((state) => ({
-                    monthlyActuals: {
-                        ...state.monthlyActuals,
-                        [month]: {
-                            ...state.monthlyActuals[month],
-                            savingsMode: mode,
-                        },
-                    },
-                })),*/
             setActualCustomSavings: (month, value) =>
                 set((state) => ({
                     monthlyActuals: {
@@ -686,6 +720,11 @@ export const useBudgetStore = create(
 
         {
             name: 'budget-app-storage', // key in localStorage
+            partialize: (state) => {
+                // TODO: If you do want hasInitialized persisted, just don’t strip it
+                const { sessionExpired, hasInitialized, ...rest } = state;
+                return rest; // don’t persist transient auth flags
+            },
         }
     )
 );

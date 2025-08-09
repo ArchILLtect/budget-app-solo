@@ -1,45 +1,15 @@
-import React, { useState } from 'react';
-import { useToast } from '@chakra-ui/react';
+import React from 'react';
 import { useBudgetStore } from '../state/budgetStore';
+import {
+    getSavingsKey,
+    getUniqueTransactions,
+    normalizeTransactionAmount,
+} from './storeHelpers';
 
-export function importCsvData(data) {
-    const addSyncedAccount = useBudgetStore((s) => s.addSyncedAccount);
-    const accountMappings = useBudgetStore((s) => s.accountMappings);
-    const toast = useToast();
-
-    const rows = data.map((row) => ({
-        id: crypto.randomUUID(),
-        date: row['Posted Date'] || new Date().toISOString().slice(0, 10),
-        name: row['Description'] || 'Unnamed',
-        description: row['Description'] || 'Unnamed',
-        amount: parseFloat(row['Amount'] || 0),
-        type: parseFloat(row['Amount']) >= 0 ? 'income' : 'expense',
-        category: row['Category'] || undefined,
-        accountNumber: row['AccountNumber']?.trim(),
-        institution:
-            accountMappings?.[row['AccountNumber']?.trim()]?.institution || undefined,
-    }));
-
-    addSyncedAccount({
-        name: csvFile.name.replace('.csv', ''),
-        source: 'csv',
-        fileName: csvFile.name,
-        transactions: rows,
-    });
-
-    toast({
-        title: `Imported ${rows.length} transactions from CSV`,
-        status: 'success',
-        duration: 4000,
-    });
-    onClose();
-    setCsvFile(null); // reset
-}
-
-export function formatDate(dateString, format = 'shortMonth') {
+export function formatDate(dateString, format = 'shortMonthAndDay') {
     let newDate;
 
-    if (format === 'shortMonth') {
+    if (format === 'shortMonthAndDay') {
         const [year, month, day] = dateString.split('-');
         const date = new Date(+year, +month - 1, +day);
         newDate = new Intl.DateTimeFormat('en-US', {
@@ -48,6 +18,10 @@ export function formatDate(dateString, format = 'shortMonth') {
         })
             .format(date)
             .replace(',', '-');
+    } else if (format === 'shortMonth') {
+        const [year, month] = dateString.split('-');
+        const date = new Date(`${year}-${month}-01T12:00:00`);
+        newDate = new Intl.DateTimeFormat('en-US', { month: 'short' }).format(date);
     } else if (format === 'longMonth') {
         const [year, month] = dateString.split('-');
         const date = new Date(`${year}-${month}-01T12:00:00`);
@@ -56,21 +30,200 @@ export function formatDate(dateString, format = 'shortMonth') {
         const [year, month] = dateString.split('-');
         const date = new Date(`${year}-${month}-01T12:00:00`);
         newDate = new Intl.DateTimeFormat('en-US', { year: 'numeric' }).format(date);
+    } else if (format === 'monthNumber') {
+        const parts = dateString.split('-');
+        const month = parts[1];
+        newDate = month;
     }
     return newDate;
 }
 
-export function extractVendorDescription(raw) {
-    if (!raw) return 'Unknown';
+export function formatMonthToYYYYMM(monthAbbreviation, year) {
+    const monthMap = {
+        Jan: '01',
+        Feb: '02',
+        Mar: '03',
+        Apr: '04',
+        May: '05',
+        Jun: '06',
+        Jul: '07',
+        Aug: '08',
+        Sep: '09',
+        Oct: '10',
+        Nov: '11',
+        Dec: '12',
+    };
 
-    // Match date in MM/DD/YY or MM-DD-YY format (with optional spaces)
-    const regex = /(\d{2}[\/\-]\d{2}[\/\-]\d{2})\s+(.+)/;
-    const match = raw.match(regex);
+    const monthNumber = monthMap[monthAbbreviation];
 
-    if (match && match[2]) {
-        return match[2].trim(); // Everything after the date
+    if (!monthNumber) {
+        return 'Invalid month abbreviation';
     }
 
-    // Still couldn't find a match — fallback: just return original
-    return raw.trim();
+    // Ensure year is a four-digit number
+    const formattedYear = String(year).padStart(4, '0');
+
+    return `${formattedYear}-${monthNumber}`;
+}
+
+export function formatToYYYYMM(monthNumber, yearNumber) {
+    const date = new Date(yearNumber, monthNumber - 1); // Month is 0-indexed in Date object
+
+    const yearPart = date.getFullYear();
+    const monthPart = date.getMonth() + 1; // Convert back to 1-indexed month
+
+    const formattedMonth = String(monthPart).padStart(2, '0');
+
+    return `${yearPart}-${formattedMonth}`;
+}
+
+export function extractVendorDescription(raw) {
+    const knownVendors = [
+        'prime video',
+        'netlify',
+        'bluehost',
+        'openai',
+        'aws',
+        'patreon',
+        'crunchyroll',
+        'walgreens',
+        'wal-mart',
+        'wal-sams',
+        'woodmans',
+        'credit one bank',
+        'capital petroleum',
+        'cenex',
+        'grubhub',
+    ];
+    const lowered = raw.toLowerCase();
+
+    // Return a known vendor if matched
+    for (let vendor of knownVendors) {
+        if (lowered.includes(vendor)) return vendor;
+    }
+
+    // Fallback: get last part after date
+    const dateMatch = lowered.match(/\d{2}\/\d{2}\/\d{2}/); // mm/dd/yy
+    if (dateMatch) {
+        const split = lowered.split(dateMatch[0]);
+        if (split[1]) return split[1].trim().split(/\s+/).slice(0, 3).join(' ');
+    }
+
+    return lowered.slice(0, 32); // safe fallback
+}
+
+export function getUniqueOrigins(txs) {
+    const unique = new Set();
+    txs.forEach((tx) => {
+        if (tx.origin) {
+            unique.add(tx.origin);
+        }
+    });
+    return Array.from(unique).sort((a, b) => a.localeCompare(b));
+}
+
+export const applyOneMonth = async (monthKey, acct, showToast = true) => {
+    const store = useBudgetStore.getState();
+
+    // Ensure the month exists in monthlyActuals
+    if (!store.monthlyActuals[monthKey]) {
+        useBudgetStore.setState((state) => ({
+            monthlyActuals: {
+                ...state.monthlyActuals,
+                [monthKey]: {
+                    actualExpenses: [],
+                    actualFixedIncomeSources: [],
+                    actualTotalNetIncome: 0,
+                    customSavings: 0,
+                },
+            },
+        }));
+    }
+
+    const existing = store.monthlyActuals[monthKey] || {};
+    const expenses = existing.actualExpenses || [];
+    const income = (existing.actualFixedIncomeSources || []).filter(
+        (i) => i.id !== 'main'
+    );
+    const savings = store.savingsLogs[monthKey] || [];
+
+    const monthRows = acct.transactions.filter((tx) => tx.date?.startsWith(monthKey));
+
+    const newExpenses = getUniqueTransactions(
+        expenses,
+        monthRows.filter((tx) => tx.type === 'expense')
+    );
+
+    const newIncome = getUniqueTransactions(
+        income,
+        monthRows.filter((tx) => tx.type === 'income')
+    );
+
+    const combinedIncome = [...income, ...newIncome];
+    const newTotalNetIncome = combinedIncome.reduce(
+        (sum, tx) => sum + normalizeTransactionAmount(tx),
+        0
+    );
+
+    useBudgetStore.getState().updateMonthlyActuals(monthKey, {
+        actualFixedIncomeSources: combinedIncome,
+        actualTotalNetIncome: newTotalNetIncome,
+    });
+
+    const newSavings = getUniqueTransactions(
+        savings,
+        monthRows.filter((tx) => tx.type === 'savings'),
+        getSavingsKey
+    );
+
+    newExpenses.forEach((e) =>
+        store.addActualExpense(monthKey, { ...e, amount: normalizeTransactionAmount(e) })
+    );
+
+    if (newSavings.length > 0) {
+        const reviewEntries = newSavings.map((s) => ({
+            id: s.id,
+            date: s.date,
+            name: s.name,
+            amount: normalizeTransactionAmount(s),
+            month: monthKey,
+        }));
+
+        // Set the queue and open modal
+        store.setSavingsReviewQueue(reviewEntries);
+        store.setSavingsModalOpen(true);
+
+        // Return a Promise that resolves only after modal confirm
+        await new Promise((resolve) => {
+            useBudgetStore.setState({ resolveSavingsPromise: resolve });
+        });
+    }
+
+    if (showToast) {
+        toast({
+            title: 'Budget updated',
+            description: `Applied ${newExpenses.length} expenses, ${newIncome.length} income, ${newSavings.length} savings`,
+            status: 'success',
+            duration: 3000,
+        });
+    }
+
+    return { e: newExpenses.length, i: newIncome.length, s: newSavings.length };
+};
+
+// Utility to organize the data (maybe move to helpers later)
+export function groupTransactions(transactions) {
+    const grouped = {};
+
+    transactions.forEach((tx) => {
+        const date = new Date(tx.date);
+        const year = date.getFullYear();
+        const month = date.toLocaleString('default', { month: 'long' });
+
+        if (!grouped[year]) grouped[year] = {};
+        if (!grouped[year][month]) grouped[year][month] = [];
+        grouped[year][month].push(tx);
+    });
+
+    return grouped;
 }

@@ -32,10 +32,10 @@ export default function TrackerHeader() {
     };
 
     const handleRemove = () => {
-        const confirm = window.confirm(
+        const didConfirm = window.confirm(
             `Are you sure you want to remove the plan for ${formatted}?`
         );
-        if (confirm) {
+        if (didConfirm) {
             removeMonthlyPlan(selectedMonth);
         }
     };

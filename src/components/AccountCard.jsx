@@ -1,51 +1,58 @@
 import {
   Box, Tabs, TabList, TabPanels, Tab, TabPanel, Text, Flex,
-  VStack, Tag, Button, Table, Thead, Th, Tr, Td, Tbody, Center,
-  useToast
+  HStack, VStack, Tag, Button, Table, Thead, Th, Tr, Td, Tbody,
+  Center, Tooltip, ButtonGroup, useDisclosure
 } from "@chakra-ui/react";
-import { useState, useMemo } from "react";
+import { useMemo } from "react";
 import dayjs from "dayjs";
-import { formatDate } from "../utils/accountUtils";
-import {
-  getMonthlyTotals, getUniqueTransactions,
-  normalizeTransactionAmount, getSavingsKey
-} from '../utils/storeHelpers';
+import { formatDate, getUniqueOrigins } from "../utils/accountUtils";
+import { getMonthlyTotals, getAvailableMonths } from '../utils/storeHelpers';
 import { useBudgetStore } from "../state/budgetStore";
+// Used for DEV only:
+import { findRecurringTransactions } from "../utils/analysisUtils";
+import { assessRecurring } from "../dev/analysisDevTools";
+import ApplyToBudgetModal from "./ApplyToBudgetModal";
+import SavingsReviewModal from "./SavingsReviewModal";
+import ConfirmModal from "./ConfirmModal";
+import { YearPill } from "./YearPill";
 
-// Utility to organize the data (maybe move to helpers later)
-function groupTransactions(transactions) {
-  const grouped = {};
-
-  transactions.forEach((tx) => {
-    const date = new Date(tx.date);
-    const year = date.getFullYear();
-    const month = date.toLocaleString("default", { month: "long" });
-
-    if (!grouped[year]) grouped[year] = {};
-    if (!grouped[year][month]) grouped[year][month] = [];
-    grouped[year][month].push(tx);
-  });
-
-  return grouped;
-}
-
-export default function AccountCard({ acct, months }) {
-  const removeSyncedAccount = useBudgetStore((s) => s.removeSyncedAccount);
-  const addActualExpense = useBudgetStore(s => s.addActualExpense);
-  const addActualIncomeSource = useBudgetStore(s => s.addActualIncomeSource);
-  const addSavingsLog = useBudgetStore(s => s.addSavingsLog);
-  const savingsGoals = useBudgetStore(s => s.savingsGoals);
+export default function AccountCard({ acct, acctNumber }) {
+  const ORIGIN_COLOR_MAP = useBudgetStore((s) => s.ORIGIN_COLOR_MAP);
+  const accounts = useBudgetStore((s) => s.accounts);
+  const removeAccount = useBudgetStore((s) => s.removeAccount); 
   const accountMappings = useBudgetStore(s => s.accountMappings);
-  const [selectedYear, setSelectedYear] = useState();
-  const grouped = useMemo(() => groupTransactions(acct.transactions), [acct.transactions]);
-  const years = Object.keys(grouped).sort();
-  const currentYear = selectedYear || years.at(-1);
-  const currentMonths = Object.keys(grouped[currentYear] || {});
-  const accountNumber = acct.transactions[0]?.accountNumber
-  const institution = accountMappings[accountNumber].institution || "Institution Unknown";
-  const accountLabel = accountMappings[accountNumber].label || acct.name;
+  const selectedMonth = useBudgetStore((s) => s.selectedMonth);
+  const setSelectedMonth = useBudgetStore((s) => s.setSelectedMonth);
+  const currentAccount = accounts[acctNumber];
+  const currentTransactions = currentAccount.transactions;
+  const institution = acct.institution || "Institution Unknown";
+  const accountLabel = accountMappings[acctNumber].label || acct.name;
+  const { isOpen, onOpen, onClose } = useDisclosure();
 
-  const toast = useToast();
+  // All available months for THIS account: ["2025-07","2025-06",...]
+  const months = useMemo(() => getAvailableMonths(acct), [acct.transactions]);
+  // Years present in this account’s data (ascending for nice left→right buttons)
+  const years = useMemo(
+    () => Array.from(new Set(months.map(m => m.slice(0,4)))).sort(),
+    [months]
+  );
+
+  // The year that should be visible is whatever year the global selectedMonth is in.
+  // If the account doesn’t have that year, fallback to the most recent account year.
+  const selectedYearFromStore = dayjs(selectedMonth).year().toString();
+  const hasYear = years.includes(selectedYearFromStore);
+  const currentYear = hasYear ? selectedYearFromStore : years.at(-1);
+
+  // Months just for currentYear, oldest→newest for tabs (or reverse if you prefer)
+  const monthsForYear = useMemo(
+    () => months.filter(m => m.startsWith(currentYear)).sort(),
+    [months, currentYear]
+  );
+
+  /* // TODO: DEV only - Use to check for recurring payments validity
+  const recurring = findRecurringTransactions(currentAccount.transactions);
+  assessRecurring(recurring);
+  */
 
   return (
     <>
@@ -56,151 +63,127 @@ export default function AccountCard({ acct, months }) {
             {institution}
           </Text>
           <Text fontSize="sm" color="gray.500">
-              Imported {dayjs(acct.importedAt).format("MMM D, YYYY @ h:mm A")}
+            Imported {dayjs(acct.importedAt).format("MMM D, YYYY @ h:mm A")}
           </Text>
         </VStack>
         <Flex alignItems="center" gap={3}>
-          <Tag size="sm" colorScheme="purple">{acct.source.toUpperCase()}</Tag>
-          <Button size="xs" colorScheme="red" onClick={() => removeSyncedAccount(acct.id)}>
+          <HStack spacing={1}>
+            {getUniqueOrigins(currentTransactions).map((origin) => (
+              <Tooltip key={origin} label={`Imported via ${origin}`} hasArrow>
+                <Tag size="sm" colorScheme={ORIGIN_COLOR_MAP[origin.toLowerCase()] || 'gray'}>
+                  {origin?.toUpperCase() || 'manual'}
+                </Tag>
+              </Tooltip>
+            ))}
+          </HStack>
+          <Button size="xs" colorScheme="red" onClick={() => removeAccount(acctNumber)}>
               Remove
           </Button>
         </Flex>
       </Flex>
 
+      <ButtonGroup isAttached={false} spacing={2}>
+          <YearPill months={months} />
+      </ButtonGroup>
+
+      {/*
+      <Flex key={acct.id} direction={'row'} alignItems="center" mb={3} bg={'gray.100'} rounded={'lg'}>
+        {years.map((y) => {
+          const isActive = y === currentYear;
+          return (
+            <Box key={y} p={3}>
+              <Button
+                onClick={() => {
+                  const currentMonthNum = dayjs(selectedMonth).format('MM');
+                  const sameMonthKey = `${y}-${currentMonthNum}`;
+                  // Prefer the same month index if it exists in this year; else pick latest available in that year
+                  const target =
+                    months.includes(sameMonthKey)
+                      ? sameMonthKey
+                      : months.filter(m => m.startsWith(y)).sort().at(-1);
+                  if (target) setSelectedMonth(target);
+                }}
+                colorScheme={isActive ? 'teal' : 'gray'}
+                variant={isActive ? 'solid' : 'ghost'}
+                fontWeight={isActive ? 'bold' : 'normal'}
+                size="md"
+              >
+                {y}
+              </Button>
+            </Box>
+          );
+        })}
+      </Flex>
+      */}
+
       {/* ✅ Monthly Tabbed View Here */}
-      <Tabs isLazy variant="enclosed" colorScheme="teal" mt={4}>
+      <Tabs
+        isLazy
+        variant="enclosed"
+        colorScheme="teal"
+        mt={4}
+        index={Math.max(0, monthsForYear.indexOf(selectedMonth))}
+        onChange={(i) => {
+          const target = monthsForYear[i];
+          if (target) setSelectedMonth(target);
+        }}
+      >
         <TabList>
-          {months.map((month) => {
-            const monthName = formatDate(month, 'longMonth');
-            const year = formatDate(month, 'year');
-            return (
-              <Tab key={monthName}>{monthName} {year}</Tab>
-            )
-          })}
+          {monthsForYear.map((m) => (
+            <Tab key={m} minWidth={1} fontWeight="bold" fontSize={22}>
+              {dayjs(m).format('MMM')}
+            </Tab>
+          ))}
         </TabList>
 
         <TabPanels>
-          {months.map((month) => {
-            const monthRows = acct.transactions.filter((tx) =>
-              tx.date?.startsWith(month)
-            );
-            const totals = getMonthlyTotals(acct, month);
-
-            const handleApplyToBudget = () => {
-              const store = useBudgetStore.getState();
-              // Ensure the month exists in monthlyActuals
-              if (!store.monthlyActuals[month]) {
-                  useBudgetStore.setState((state) => ({
-                  monthlyActuals: {
-                    ...state.monthlyActuals,
-                    [month]: {
-                      actualExpenses: [],
-                      actualFixedIncomeSources: [],
-                      actualTotalNetIncome: 0,
-                      customSavings: 0,
-                    },
-                  },
-                }));
-              }
-              const existing = store.monthlyActuals[month] || {};
-              const expenses = existing.actualExpenses || [];
-              const income = (existing.actualFixedIncomeSources || []).filter(
-                (i) => i.id !== "main"
-              );
-              const savings = store.savingsLogs[month] || [];
-
-              const monthRows = acct.transactions.filter((tx) =>
-                tx.date?.startsWith(month)
-              );
-
-              const newExpenses = getUniqueTransactions(
-                expenses,
-                monthRows.filter((tx) => tx.type === "expense")
-              );
-
-              const newIncome = getUniqueTransactions(
-                income,
-                monthRows.filter((tx) => tx.type === "income")
-              );
-
-              const updatedIncome = [...income, ...newIncome].map(normalizeTransactionAmount);
-              const newTotalNetIncome = updatedIncome.reduce((sum, val) => sum + val, 0);
-
-              useBudgetStore.getState().updateMonthlyActuals(month, {
-                actualFixedIncomeSources: income,
-                actualTotalNetIncome: newTotalNetIncome
-              });
-              
-              const newSavings = getUniqueTransactions(
-                savings,
-                monthRows.filter((tx) => tx.type === "savings"),
-                getSavingsKey
-              );
-
-              newExpenses.forEach((e) =>
-                addActualExpense(month, { ...e, amount: normalizeTransactionAmount(e) })
-              );
-              newIncome.forEach((i) =>
-                addActualIncomeSource(month, { ...i, amount: normalizeTransactionAmount(i) })
-              );
-
-              const defaultGoalId = savingsGoals[0]?.id || "default";
-              newSavings.forEach((s) =>
-                addSavingsLog(month, {
-                  goalId: defaultGoalId,
-                  date: s.date,
-                  amount: normalizeTransactionAmount(s),
-                })
-              );
-
-              toast({
-                title: "Budget updated",
-                description: `Applied ${newExpenses.length} expenses, ${newIncome.length} income, ${newSavings.length} savings`,
-                status: "success",
-                duration: 4000,
-              });
-            };
+          {monthsForYear.map((monthRaw) => {
+            const monthRows = acct.transactions.filter(tx => tx.date?.startsWith(monthRaw));
+            const totals = getMonthlyTotals(acct, monthRaw);
 
             return (
               <>
-                <TabPanel key={month}>
-                  <Table size="sm" variant="striped">
-                    <Thead>
-                      <Tr>
-                        <Th>Date</Th>
-                        <Th>Description</Th>
-                        <Th isNumeric>Amount</Th>
-                        <Th>Type</Th>
-                        <Th>Category</Th>
-                      </Tr>
-                    </Thead>
-                    <Tbody>
-                      {monthRows.map((tx) => (
-                        <Tr key={tx.id}>
-                          <Td whiteSpace={'nowrap'}>{formatDate(tx.date)}</Td>
-                          <Td>{tx.description}</Td>
-                          <Td isNumeric color={tx.amount < 0 ? "red.500" : "green.600"}>
-                            ${Math.abs(tx.amount).toFixed(2)}
-                          </Td>
-                          <Td>
-                            <Tag
-                              size="sm"
-                              colorScheme={
-                              tx.type === "income"
-                                  ? "green"
-                                  : tx.type === "savings"
-                                  ? "blue"
-                                  : "orange"
-                              }
-                            >
-                              {tx.type}
-                            </Tag>
-                          </Td>
-                          <Td>{tx.category || "—"}</Td>
+                <TabPanel key={monthRaw} p={0} m={2}>
+                  <Box maxHeight={'md'} overflowY={'scroll'}>
+                    <Table size="sm" variant="striped">
+                      <Thead>
+                        <Tr>
+                          <Th>Date</Th>
+                          <Th>Description</Th>
+                          <Th isNumeric>Amount</Th>
+                          <Th>Type</Th>
+                          <Th>Category</Th>
                         </Tr>
-                      ))}
-                    </Tbody>
-                  </Table>
+                      </Thead>
+                      <Tbody>
+                        {monthRows.map((tx) => (
+                          <Tr key={tx.id}>
+                            <Td whiteSpace={'nowrap'}>{formatDate(tx.date)}</Td>
+                            <Td>{tx.description}</Td>
+                            <Td isNumeric color={tx.amount < 0 ? "red.500" : "green.600"}>
+                              ${Math.abs(tx.amount).toFixed(2)}
+                            </Td>
+                            <Td>
+                              <Tag
+                                size="sm"
+                                colorScheme={
+                                tx.type === "income"
+                                    ? "green"
+                                    : tx.type === "savings"
+                                    ? "blue"
+                                    : "orange"
+                                }
+                              >
+                                {tx.type}
+                              </Tag>
+                            </Td>
+                            <Td>{tx.category || "—"}</Td>
+                          </Tr>
+                        ))}
+                      </Tbody>
+                    </Table>
+                  </Box>
+
                   <Box my={6} px={4} py={2} borderWidth={1} borderRadius="md" bg="gray.100">
                     <Flex justifyContent="space-between" alignItems="center" wrap="wrap" gap={2}>
                       <Text fontWeight="medium">Income: <span style={{ color: 'green' }}>${totals.income.toFixed(2)}</span></Text>
@@ -215,10 +198,18 @@ export default function AccountCard({ acct, months }) {
                     </Flex>
                   </Box>
                   <Center>
-                    <Button size="sm" colorScheme="teal" mb={4} onClick={handleApplyToBudget}>
+                    <Button size="sm" colorScheme="teal" onClick={onOpen}>
                       ✅ Apply to Budget
                     </Button>
                   </Center>
+                  <ApplyToBudgetModal
+                    isOpen={isOpen}
+                    onClose={onClose}
+                    acct={acct}
+                    months={months}
+                  />
+                  <SavingsReviewModal />
+                  <ConfirmModal />
                 </TabPanel>
               </>
             );

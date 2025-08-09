@@ -51,7 +51,7 @@ export const getMonthlyTotals = (account, month) => {
         }
     });
 
-    totals.net = totals.income - totals.expenses - totals.savings;
+    totals.net = totals.income + totals.expenses - totals.savings;
 
     return totals;
 };
@@ -71,8 +71,8 @@ export const getUniqueTransactions = (existing, incoming, getKey = getTransactio
     return incoming.filter((tx) => !seen.has(getKey(tx)));
 };
 
-export const normalizeTransactionAmount = (tx) => {
-    const abs = Math.abs(parseFloat(tx.amount) || 0);
+export const normalizeTransactionAmount = (tx, direct = false) => {
+    const abs = Math.abs(parseFloat(direct ? tx : tx.amount) || 0);
 
     return abs;
 };

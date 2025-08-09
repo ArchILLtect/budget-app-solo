@@ -1,9 +1,11 @@
 import { Box, Text, Heading, Stat, StatLabel, StatNumber, Stack,
-  StatGroup, Progress, useColorModeValue, Flex, Button, Collapse
+  StatGroup, Progress, StatHelpText, Flex, Button, Collapse,
+  useColorModeValue
 } from '@chakra-ui/react';
 import { useBudgetStore } from '../state/budgetStore';
 import ExpenseTracker from '../features/planner/ExpenseTracker';
 import IncomeCalculator from '../features/planner/IncomeCalculator';
+import dayjs from 'dayjs';
 
 export default function MonthlyActualSummary() {
   const selectedMonth = useBudgetStore((s) => s.selectedMonth);
@@ -24,6 +26,38 @@ export default function MonthlyActualSummary() {
   const savings = actual?.actualSavings || savingsSoFar || 0;
   const leftover = netIncome - totalExpenses - savings;
   const percentComplete = plan?.totalSavings ? Math.min((savings / plan.totalSavings) * 100, 100) : 0;
+  const actuals = useBudgetStore((s) => s.monthlyActuals);
+  const savingsLogs = useBudgetStore((s) => s.savingsLogs);
+  const monthlyActuals = useBudgetStore((s) => s.monthlyActuals[selectedMonth]);
+
+  const selectedYear = dayjs(selectedMonth).format('YYYY');
+  // Get all monthlyActual objects for the selected year
+  const actualsThisYear = Object.fromEntries(
+    Object.entries(actuals).filter(([key]) => key.startsWith(selectedYear))
+  );
+  // Get all savingsLogs objects for the selected year
+  const savingsLogsThisYear = Object.fromEntries(
+    Object.entries(savingsLogs).filter(([key]) => key.startsWith(selectedYear))
+  );
+  // Get the total actual income for the selected year summed from each month
+  const totalNetIncome = Object.values(actualsThisYear)
+    .reduce((sum, month) => sum + (month.actualTotalNetIncome || 0), 0);
+  // Get the total actual expenses for the selected year summed from each month
+  const totalExpensesThisYear = Object.values(actualsThisYear)
+    .reduce((sum, month) => {
+      const monthTotal = month.actualExpenses?.reduce((mSum, expense) => {
+        return mSum + (expense.amount || 0);
+      }, 0) || 0;
+      return sum + monthTotal;
+    }, 0);
+  // Get the total actual expenses for the selected year summed from each month
+    const totalSavingsThisYear = Object.values(savingsLogsThisYear)
+      .reduce((sum, month) => {
+        const monthTotal = month.reduce((mSum, log) => {
+          return mSum + (log.amount || 0);
+        }, 0) || 0;
+        return sum + monthTotal;
+      }, 0);
 
   return (
     <Box p={4} borderBottomRadius="lg" boxShadow="md" bg={bg} borderWidth={2}>
@@ -47,23 +81,36 @@ export default function MonthlyActualSummary() {
         </Stack>
       </>
       }
+      <Box mb={4} px={4} py={3} borderWidth={1} borderRadius="md" bg="gray.50">
+        <StatGroup>
+          <Stat textAlign={'center'}>
+            <StatLabel>{selectedYear} Total Income</StatLabel>
+            <StatNumber color="teal.600">${totalNetIncome.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</StatNumber>
+          </Stat>
+          <Stat textAlign={'center'}>
+            <StatLabel>{selectedYear} Total Expenses</StatLabel>
+            <StatNumber color="teal.600">${totalExpensesThisYear.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</StatNumber>
+          </Stat>
+          <Stat textAlign={'center'}>
+            <StatLabel>{selectedYear} Total Savings</StatLabel>
+            <StatNumber color="teal.600">${totalSavingsThisYear.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</StatNumber>
+          </Stat>
+        </StatGroup>
+      </Box>
       <Box px={4} py={3} borderWidth={1} borderRadius="md" bg="gray.50">
         <StatGroup>
           <Stat textAlign={'center'}>
             <StatLabel>Actual Net Income</StatLabel>
             <StatNumber color="teal.500">${overiddenIncomeTotal ? overiddenIncomeTotal : netIncome.toLocaleString()}</StatNumber>
           </Stat>
-
           <Stat textAlign={'center'}>
             <StatLabel>Total Expenses</StatLabel>
             <StatNumber color="orange.500">${overiddenExpenseTotal ? overiddenExpenseTotal : totalExpenses.toLocaleString()}</StatNumber>
           </Stat>
-
           <Stat textAlign={'center'}>
             <StatLabel>Total Saved</StatLabel>
             <StatNumber color="blue.500">${savings.toLocaleString()}</StatNumber>
           </Stat>
-
           <Stat textAlign={'center'}>
             <StatLabel>Leftover</StatLabel>
             <StatNumber color={leftover >= 0 ? 'green.500' : 'red.500'}>${leftover.toLocaleString()}</StatNumber>

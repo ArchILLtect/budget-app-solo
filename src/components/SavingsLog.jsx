@@ -82,7 +82,7 @@ export default function SavingsLog() {
                       </Text>
                     </VStack>
                     <Text>
-                      {savingsGoals.find((g) => g.id === entry.goalId)?.name || 'unnamed'}
+                      {savingsGoals.find((g) => g.id === entry.goalId)?.name || '----'}
                     </Text>
                     <Button
                       size="xs"

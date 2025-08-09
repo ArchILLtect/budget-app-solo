@@ -4,13 +4,12 @@ import { Box, Flex, Heading, HStack, Radio, FormControl, FormLabel, Tabs,TabList
   TabPanels, Tab, TabPanel, Stack, Text, Tooltip, Stat, StatLabel, StatNumber,
   StatHelpText, StatGroup, Collapse, RadioGroup, Button
 } from '@chakra-ui/react'
+import AddFixedIncomeSource from '../../components/AddFixedIncomeSource'
 import IncomeSourceForm from '../../components/IncomeSourceForm'
 import { InfoIcon } from '@chakra-ui/icons'
-import AddFixedIncomeSource from '../../components/AddFixedIncomeSource'
 
 export default function IncomeCalculator({ origin = 'Planner', selectedMonth = null }) {
   const [showDetails, setShowDetails] = useState(false)
-
   const { scenarios, currentScenario, updateScenario } = useBudgetStore();
   const sources = useBudgetStore((s) => s.incomeSources)
   const showIncomeInputs = useBudgetStore((s) => s.showIncomeInputs)
@@ -21,7 +20,7 @@ export default function IncomeCalculator({ origin = 'Planner', selectedMonth = n
   const addSource = useBudgetStore((s) => s.addIncomeSource)
   const setFilingStatus = useBudgetStore((s) => s.setFilingStatus)
   const grossTotal = useBudgetStore.getState().getTotalGrossIncome();
-  const mothlyActuals = useBudgetStore((s) => s.monthlyActuals[selectedMonth]);
+  const monthlyActuals = useBudgetStore((s) => s.monthlyActuals[selectedMonth]);
 
   const activeSource = sources.find((s) => s.id === selectedId) || sources[0] || {}
   const { net, breakdown } = useBudgetStore.getState().getTotalNetIncome();
@@ -73,8 +72,8 @@ export default function IncomeCalculator({ origin = 'Planner', selectedMonth = n
           <Heading size="md">${(net/12).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Heading>
         ) : (
           <Heading size="md">
-            {mothlyActuals?.actualTotalNetIncome
-              ? `$${mothlyActuals.actualTotalNetIncome.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+            {monthlyActuals?.actualTotalNetIncome
+              ? `$${monthlyActuals.actualTotalNetIncome.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
               : 'No Actual Income Yet'}
           </Heading>
         )}
@@ -145,7 +144,7 @@ export default function IncomeCalculator({ origin = 'Planner', selectedMonth = n
       </Collapse>
 
       {/* Estimated Income Output */}
-      {grossTotal > 0 & !isTracker ? (
+      {grossTotal > 0 && !isTracker ? (
         <Box mt={2} px={4} py={3} borderWidth={1} borderRadius="md" bg="gray.50">
           <StatGroup>
             <Stat textAlign={'center'}>
@@ -196,7 +195,7 @@ export default function IncomeCalculator({ origin = 'Planner', selectedMonth = n
             </Stat>
           </StatGroup>
         </Box>
-      ) : ("") }
+      ) : (null) }
     </Box>
   )
 }

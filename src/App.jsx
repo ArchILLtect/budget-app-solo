@@ -5,7 +5,7 @@ import { useBudgetStore } from './state/budgetStore'
 import BudgetPlannerPage from './pages/BudgetPlannerPage'
 import AccountsTrackerPage from './pages/AccountsTrackerPage'
 import BudgetTrackerPage from './pages/BudgetTrackerPage'
-import Navbar from './components/Navbar'
+import NavBar from './components/NavBar'
 import LoginPage from './pages/LoginPage'
 import AuthInitializer from './components/AuthInitializer'
 import RequireAuth from './components/RequireAuth'
@@ -15,6 +15,7 @@ import SessionLockOverlay from './components/SessionLockOverlay'
 import { getCurrentUser } from './utils/auth'
 import { applySessionRefresh } from './utils/storeHelpers'
 import { checkTokenExpiry } from './utils/jwtUtils'
+import ProgressModal from './components/ProgressModal'
 
 
 function PageTracker() {
@@ -47,16 +48,34 @@ export default function App() {
 
       if (event.data?.type === 'loginSuccess') {
         // Refresh user state manually
+        /* TODO: Remove this after positive results from testing auth system
         getCurrentUser().then((user) => {
           if (user) {
             applySessionRefresh();
           }
+        });*/
+        // Optimistic: clear the lock immediately, then refresh user
+        useBudgetStore.getState().setSessionExpired(false);
+        getCurrentUser().then((user) => {
+          if (user) applySessionRefresh(); // sets user lears lock again for safety
         });
       }
     };
 
+    const handleStorage = (e) => {
+      if (e.key === 'token' && e.newValue) {
+        // Token changed in another tab/window → refresh and unlock
+        useBudgetStore.getState().setSessionExpired(false);
+        applySessionRefresh();
+      }
+    };
+
     window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
+    window.addEventListener('storage', handleStorage);
+    return () => {
+      window.removeEventListener('message', handleMessage);
+      window.removeEventListener('storage', handleStorage);
+    };
   }, []);
 
   return (
@@ -67,7 +86,8 @@ export default function App() {
           <TokenExpiryGuard />
           <SessionLockOverlay />
           <PageTracker />
-          <Navbar />
+          <NavBar />
+          <ProgressModal />
           <Routes>
             <Route path="/" element={<BudgetPlannerPage />} />
             <Route path="/login" element={<LoginPage />} />

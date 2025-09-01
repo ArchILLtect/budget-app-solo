@@ -269,13 +269,13 @@ export const useBudgetStore = create(
             updateSavingsLog: (month, id, updates) =>
                 set((state) => {
                     const logs = state.savingsLogs[month] || [];
-                    const updated = logs.map((e) =>
+                    const updatedLogs = logs.map((e) =>
                         e.id === id ? { ...e, ...updates } : e
                     );
                     return {
                         savingsLogs: {
                             ...state.savingsLogs,
-                            [month]: [...logs, updated],
+                            [month]: updatedLogs,
                         },
                     };
                 }),

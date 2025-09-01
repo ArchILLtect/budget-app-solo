@@ -1,3 +1,4 @@
+import React from "react";
 import {
   Box, Flex, Center, Heading, Stack, List, ListItem, Text,
   Input, Button, useToast, VStack, Collapse, useColorModeValue,
@@ -17,22 +18,28 @@ export default function SavingsLog() {
   const savingsGoals = useBudgetStore((s) => s.savingsGoals);
   const savingsLogs = useBudgetStore((s) => s.savingsLogs);
   const addSavingsLog = useBudgetStore((s) => s.addSavingsLog);
+  const updateSavingsLog = useBudgetStore((s) => s.updateSavingsLog);
   const deleteSavingsEntry = useBudgetStore((s) => s.deleteSavingsEntry);
   const resetSavingsLog = useBudgetStore((s) => s.resetSavingsLog);
   const logsForMonth = savingsLogs[selectedMonth] || [];
   const [selectedGoal, setSelectedGoal] = useState(savingsGoals[0]?.id || "");
+  const [editingLogId, setEditingLogId] = useState(null);
+  const [editGoalId, setEditGoalId] = useState("");
   const [amount, setAmount] = useState("");
   const bg = useColorModeValue('white', 'gray.700');
   const toast = useToast();
   const totalSavings = logsForMonth.reduce((sum, e) => sum + (e.amount || 0), 0) || 0;
   const goal = savingsGoals.find((g) => g.id === selectedGoal);
-  const logsForGoal = Object.values(savingsLogs)
-    .flat()
-    .filter((log) => log.goalId === selectedGoal);
-  const totalForGoal = logsForGoal.reduce((sum, e) => sum + (e.amount || 0), 0);
-  const rawRemaining = (goal?.target ?? 0) - totalForGoal;
-  const remaining = Number.isFinite(rawRemaining) ? Math.max(rawRemaining, 0) : 0;
-  const goalComplete = remaining <= 0;
+  const hasSelectedGoal = !!goal;
+  const logsForGoal = hasSelectedGoal
+    ? Object.values(savingsLogs).flat().filter((log) => log.goalId === selectedGoal)
+    : [];
+  const totalForGoal = hasSelectedGoal ? logsForGoal.reduce((sum, e) => sum + (e.amount || 0), 0) : 0;
+  const rawRemaining = hasSelectedGoal ? (goal?.target ?? 0) - totalForGoal : Infinity;
+  const remaining = hasSelectedGoal
+    ? Math.max(Number.isFinite(rawRemaining) ? rawRemaining : 0, 0)
+    : Infinity;
+  const goalComplete = hasSelectedGoal ? remaining <= 0 : false;
 
   // TODO: Clamp the value here also.
   const handleAdd = () => {
@@ -40,10 +47,17 @@ export default function SavingsLog() {
     if (!value || value <= 0) return;
 
     addSavingsLog(selectedMonth, {
-      goalId: selectedGoal,
+      goalId: selectedGoal || null, // "" -> null (no goal)
       amount: value,
       date: dayjs().format("YYYY-MM-DD"),
     });
+    setAmount("");
+  };
+
+  // begin editing a specific row's goal
+  const beginEditRow = (entry) => {
+    setEditingLogId(entry.id);
+    setEditGoalId(entry.goalId || ""); // "" sentinel for no goal
   };
 
   const handleRemove = (month, index) => {
@@ -73,17 +87,59 @@ export default function SavingsLog() {
           <Box mt={6}>
             <List spacing={2}>
               {logsForMonth.map((entry, index) => (
-                <ListItem key={index}>
+                <ListItem key={entry.id ?? `${entry.date}-${entry.amount}-${index}`}>
                   <Flex justify="space-between" alignItems="center">
                     <VStack align="start" spacing={0}>
-                      <Text fontWeight="medium">${entry.amount.toFixed(2)}</Text>
+                      <Text fontWeight="medium">${entry.amount?.toFixed(2)}</Text>
                       <Text fontSize="xs" color="gray.500">
                         {entry.date}
                       </Text>
                     </VStack>
-                    <Text>
-                      {savingsGoals.find((g) => g.id === entry.goalId)?.name || '----'}
-                    </Text>
+                    {editingLogId === entry.id ? (
+                      <Flex gap={2} align="center">
+                        <Select
+                          width={300}
+                          value={editGoalId}
+                          onChange={(e) => setEditGoalId(e.target.value)}
+                        >
+                          <option value="">{'---'}</option>
+                          {savingsGoals.map((g) => (
+                            <option key={g.id} value={g.id}>{g.name}</option>
+                          ))}
+                        </Select>
+                        <Button
+                          size="xs"
+                          colorScheme="green"
+                          onClick={() => {
+                            const newGoalId = editGoalId || null; // "" -> null
+                            updateSavingsLog(selectedMonth, entry.id, { goalId: newGoalId });
+                            toast({ title: 'Entry updated', status: 'success', duration: 1500 });
+                            setEditingLogId(null);
+                          }}
+                        >
+                          Save
+                        </Button>
+                        <Button
+                          size="xs"
+                          variant="ghost"
+                          onClick={() => setEditingLogId(null)}
+                        >
+                          Cancel
+                        </Button>
+                      </Flex>
+                    ) : (
+                      <Button
+                        size="xs"
+                        variant="outline"
+                        onClick={() => beginEditRow(entry)}
+                      >
+                        {savingsGoals.find((g) => g.id === entry.goalId)?.name || '----'}
+                        {' '}
+                        {savingsGoals.find((g) => g.id === entry.goalId)
+                          ? `(${savingsGoals.find((g) => g.id === entry.goalId)?.target ?? '---'})`
+                          : ''}
+                      </Button>
+                    )}
                     <Button
                       size="xs"
                       colorScheme="red"
@@ -119,21 +175,22 @@ export default function SavingsLog() {
               onChange={(e) => {
                 const raw = parseFloat(e.target.value);
                 if (!Number.isFinite(raw)) return setAmount("");
-                // Only clamp when remaining is a finite number
-                const clamped = Number.isFinite(remaining) ? Math.min(raw, remaining) : raw;
-                // Never set NaN into the input
+                // Only clamp if a goal is selected
+                const clamped = hasSelectedGoal && Number.isFinite(remaining)
+                  ? Math.min(raw, remaining)
+                  : raw;
                 setAmount(Number.isFinite(clamped) ? clamped : "");
               }}
               width={300}
-              max={Number.isFinite(remaining) ? remaining : undefined}
-              isDisabled={goalComplete}
+              max={hasSelectedGoal && Number.isFinite(remaining) ? remaining : undefined}
+              isDisabled={hasSelectedGoal ? goalComplete : false}
             />
             <Select
               width={300}
               value={selectedGoal}
               onChange={(e) => setSelectedGoal(e.target.value)}
             >
-              <option value={"---"}>{"---"}</option>
+              <option value="">{'---'}</option>
               {savingsGoals.map((goal) => (
                   <option key={goal.id} value={goal.id}>{goal.name}</option>
               ))}
@@ -143,11 +200,12 @@ export default function SavingsLog() {
             </Button>
           </Flex>
           <Center>
-            <Text fontSize="sm" color={goalComplete ? 'green.600' : 'orange.500'}>
-              {goalComplete
-                ? `✅ Goal complete! HINT: You may need to add a new savings goal to continue saving.` //TODO: Make HINT display on new line.
-                : `⚠️ $${(Number.isFinite(remaining) ? remaining : 0).toLocaleString()} remaining to complete "${goal?.name}"`
-              }
+            <Text fontSize="sm" color={hasSelectedGoal ? (goalComplete ? 'green.600' : 'orange.500') : 'gray.500'}>
+              {hasSelectedGoal
+                ? (goalComplete
+                  ? `✅ Goal complete! HINT: You may need to add a new savings goal to continue saving.` //TODO: Make HINT display on new line.
+                  : `⚠️ $${(Number.isFinite(remaining) ? remaining : 0).toLocaleString()} remaining to complete "${goal?.name}"`)
+                : `No goal selected — this entry won't count toward any goal.`}
             </Text>
           </Center>
           <hr style={{marginTop: 15 + "px", marginBottom: 15 + "px"}}/>

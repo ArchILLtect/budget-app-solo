@@ -509,6 +509,8 @@ export const applyOneMonth = async (
                     date: entry.date,
                     amount: entry.amount,
                     name: entry.name,
+                    id: entry.id || crypto.randomUUID(),
+                    createdAt: entry.createdAt || new Date().toISOString(),
                 });
             });
 

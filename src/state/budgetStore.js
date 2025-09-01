@@ -254,10 +254,28 @@ export const useBudgetStore = create(
             addSavingsLog: (month, entry) =>
                 set((state) => {
                     const logs = state.savingsLogs[month] || [];
+                    const newEntry = {
+                        id: entry.id || crypto.randomUUID(),
+                        createdAt: entry.createdAt || new Date().toISOString(),
+                        ...entry,
+                    };
                     return {
                         savingsLogs: {
                             ...state.savingsLogs,
-                            [month]: [...logs, entry],
+                            [month]: [...logs, newEntry],
+                        },
+                    };
+                }),
+            updateSavingsLog: (month, id, updates) =>
+                set((state) => {
+                    const logs = state.savingsLogs[month] || [];
+                    const updated = logs.map((e) =>
+                        e.id === id ? { ...e, ...updates } : e
+                    );
+                    return {
+                        savingsLogs: {
+                            ...state.savingsLogs,
+                            [month]: [...logs, updated],
                         },
                     };
                 }),

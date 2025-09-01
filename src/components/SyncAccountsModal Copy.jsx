@@ -9,31 +9,24 @@ import dayjs from "dayjs";
 import { extractVendorDescription } from "../utils/accountUtils";
 import { getTransactionKey, normalizeTransactionAmount } from "../utils/storeHelpers";
 
+//TODO: Add functionality for blocking changes to actuals after applying to budget unless user confirms.
+//TODO: When income applied via account integration, set Plan to 0 and grey it out.
+
 export default function SyncAccountsModal({ isOpen, onClose }) {
+
   const accountMappings = useBudgetStore((s) => s.accountMappings);
   const setAccountMapping = useBudgetStore((s) => s.setAccountMapping);
   const addOrUpdateAccount = useBudgetStore((s) => s.addOrUpdateAccount);
-
   const [sourceType, setSourceType] = useState("csv");
   const [csvFile, setCsvFile] = useState(null);
   const [ofxFile, setOfxFile] = useState(null);
-  const [step, setStep] = useState("import"); // "import" | "mapping"
-  const [pendingMappings, setPendingMappings] = useState([]);
-  const [pendingData, setPendingData] = useState([]);
-  const [accountInputs, setAccountInputs] = useState({});
-
+  const [step, setStep] = useState("import"); // 'import' | 'mapping'
+  const [pendingMappings, setPendingMappings] = useState([]); // array of account numbers
+  const [pendingData, setPendingData] = useState([]); // raw parsed CSV
+  const [accountInputs, setAccountInputs] = useState({}); // { accountNum: { label, institution } }
   const toast = useToast();
-  const fileTypes = ["csv", "ofx"];
 
-  const resetState = () => {
-    setSourceType("csv");
-    setCsvFile(null);
-    setOfxFile(null);
-    setStep("import");
-    setPendingMappings([]);
-    setPendingData([]);
-    setAccountInputs({});
-  };
+  const fileTypes = ["csv", "ofx"];
 
   const handleFileChange = (e) => {
     if (sourceType === "csv") {
@@ -62,6 +55,7 @@ export default function SyncAccountsModal({ isOpen, onClose }) {
         complete: (results) => {
           const data = results.data;
 
+          // Step 1: Collect all unique account numbers from the file
           const accountNumbers = new Set(
             data.map((row) => row.AccountNumber?.trim()).filter(Boolean)
           );
@@ -70,26 +64,28 @@ export default function SyncAccountsModal({ isOpen, onClose }) {
             (num) => !accountMappings[num]
           );
 
+          // Step 2: If any account is unmapped, open mapping modal
           if (unmapped.length > 0) {
             setPendingMappings(unmapped);
-            setPendingData(data);
-            setStep("mapping"); // switch view instead of opening new modal
+            setPendingData(data); // store full data for use after mapping
+            setStep("mapping");   // <- switch modal view or show mapping form
             return;
           }
 
-          const mappings = useBudgetStore.getState().accountMappings;
-          importCsvData(data, mappings);
+          // Step 3: If all accounts are already mapped, continue parsing
+          importCsvData(data);
+
+          setPendingData([]);
+          setPendingMappings([]);
+          setAccountInputs({});
+          onClose();
         },
         error: (err) => {
-          toast({
-            title: "CSV Parse Failed",
-            description: err.message,
-            status: "error",
-            duration: 4000
-          });
+          toast({ title: "CSV Parse Failed", description: err.message, status: "error", duration: 4000 });
         },
       });
     } else if (sourceType === "ofx") {
+      // parse with an OFX parser (later)
       toast({
         title: `OFX File Import Coming Soon, please use CSV for now.`,
         status: "warning",
@@ -98,12 +94,13 @@ export default function SyncAccountsModal({ isOpen, onClose }) {
     }
   };
 
-  const importCsvData = (data, accountMappings) => {
+  const importCsvData = (data) => {
     const KNOWN_SAVINGS_TRANSFERS = [
       "Web Branch:TFR TO SV 457397801",
       "Online Transfer to Savings",
       "Auto-Save Transfer",
       "Mobile Transfer to SV",
+      // Add more as needed...
     ];
 
     const accountGroups = {};
@@ -114,14 +111,16 @@ export default function SyncAccountsModal({ isOpen, onClose }) {
       const isSavingsTransfer =
         row.Category?.toLowerCase() === "transfer" &&
         KNOWN_SAVINGS_TRANSFERS.includes(row.Description?.trim());
-
+      // Skip if account number is missing
       if (!accountNumber) return;
 
+      // Normalize date to yyyy-mm-dd
       const rawDate = row["Posted Date"] || row["Date"];
       const formattedDate = rawDate
         ? dayjs(rawDate).format("YYYY-MM-DD")
         : dayjs().format("YYYY-MM-DD");
 
+      // Convert amount (e.g., "($6.50)" → -6.50)
       let rawAmount = row.Amount || row["amount"];
       if (typeof rawAmount === "string") {
         rawAmount = rawAmount.replace(/[$,()]/g, "");
@@ -146,9 +145,9 @@ export default function SyncAccountsModal({ isOpen, onClose }) {
             ? "income"
             : "expense",
         category: row.Category || undefined,
-        accountNumber,
+        accountNumber: row.AccountNumber.trim(),
         institution:
-          accountMappings?.[row['AccountNumber']?.trim()]?.institution || undefined,
+            accountMappings?.[row['AccountNumber']?.trim()]?.institution || undefined,
       };
 
       if (!accountGroups[accountNumber]) {
@@ -156,7 +155,7 @@ export default function SyncAccountsModal({ isOpen, onClose }) {
           id: crypto.randomUUID(),
           name: `${accountType} - ${accountNumber}`,
           source: "csv",
-          fileName: csvFile?.name,
+          fileName: csvFile.name,
           accountNumber,
           accountType,
           transactions: [],
@@ -174,18 +173,17 @@ export default function SyncAccountsModal({ isOpen, onClose }) {
       const accountNumber = acct.accountNumber;
 
       addOrUpdateAccount(accountNumber, {
-        label: accountMappings?.[accountNumber]?.label || accountNumber,
-        institution: accountMappings?.[accountNumber]?.institution || "Unknown",
+        label: accountMappings[accountNumber]?.label || accountNumber,
+        institution: accountMappings[accountNumber]?.institution || "Unknown",
         lastSync: new Date().toISOString(),
       });
 
+      // Get existing keys to compare
       const store = useBudgetStore.getState();
       const existing = store.accounts[accountNumber]?.transactions || [];
       const seen = new Set(existing.map(getTransactionKey));
 
-      const newTxs = acct.transactions.filter(
-        (tx) => !seen.has(getTransactionKey(tx))
-      );
+      const newTxs = acct.transactions.filter((tx) => !seen.has(getTransactionKey(tx)));
       totalAdded += newTxs.length;
 
       store.addTransactionsToAccount(accountNumber, newTxs);
@@ -193,28 +191,26 @@ export default function SyncAccountsModal({ isOpen, onClose }) {
 
     toast({
       title: `Import complete`,
-      description:
-        totalAdded > 0
-          ? `${totalAdded} new transaction${totalAdded !== 1 ? "s" : ""} added across ${accounts.length} account${accounts.length !== 1 ? "s" : ""}`
-          : 'However, no new transactions were added because the import only contained duplicate transactions.',
+      description: totalAdded > 0 ?
+        `${totalAdded} new transaction${totalAdded !== 1 ? "s" : ""} added across ${accounts.length} account${accounts.length !== 1 ? "s" : ""}` :
+        'However, no new transactions were added because the import only contained duplicate transactions.',
       status: totalAdded > 0 ? "success" : "warning",
       duration: 4000,
     });
 
-    onClose();
-    resetState();
+     onClose?.();
+    setCsvFile(null);
+    setStep("import");
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={() => { onClose(); resetState(); }} size="lg" isCentered>
-      <ModalOverlay />
-      <ModalContent>
-        <ModalHeader>
-          {step === "import" ? "Sync Your Accounts" : "Map Account Numbers"}
-        </ModalHeader>
-        <ModalCloseButton />
-        <ModalBody>
-          {step === "import" && (
+    <>
+      <Modal isOpen={isOpen} onClose={onClose} size="lg" isCentered>
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Sync Your Accounts</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
             <Stack spacing={4}>
               <RadioGroup value={sourceType} onChange={setSourceType}>
                 <Stack direction="column">
@@ -235,11 +231,26 @@ export default function SyncAccountsModal({ isOpen, onClose }) {
                 </>
               )}
             </Stack>
-          )}
+          </ModalBody>
 
-          {step === "mapping" && (
+          <ModalFooter>
+            <Button onClick={onClose} variant="ghost" mr={3}>
+              Cancel
+            </Button>
+            <Button onClick={handleImport} colorScheme="teal" isDisabled={sourceType !== "csv" && sourceType !== "ofx"}>
+              Import
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+      <Modal isOpen={step === "mapping"} onClose={() => setStep("import")} isCentered>
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Map Account Numbers</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <Text mb={4}>We found account numbers that aren't yet mapped. Please assign a label and institution.</Text>
             <Stack spacing={4}>
-              <Text mb={2}>We found account numbers that aren't yet mapped. Please assign a label and institution.</Text>
               {pendingMappings.map((num) => (
                 <Stack key={num} spacing={2}>
                   <Text fontWeight="bold">Account #: {num}</Text>
@@ -248,7 +259,10 @@ export default function SyncAccountsModal({ isOpen, onClose }) {
                     onChange={(e) =>
                       setAccountInputs((prev) => ({
                         ...prev,
-                        [num]: { ...prev[num], label: e.target.value },
+                        [num]: {
+                          ...prev[num],
+                          label: e.target.value,
+                        },
                       }))
                     }
                   />
@@ -257,50 +271,39 @@ export default function SyncAccountsModal({ isOpen, onClose }) {
                     onChange={(e) =>
                       setAccountInputs((prev) => ({
                         ...prev,
-                        [num]: { ...prev[num], institution: e.target.value },
+                        [num]: {
+                          ...prev[num],
+                          institution: e.target.value,
+                        },
                       }))
                     }
                   />
                 </Stack>
               ))}
             </Stack>
-          )}
-        </ModalBody>
-        <ModalFooter>
-          {step === "import" ? (
-            <>
-              <Button onClick={() => { onClose(); resetState(); }} variant="ghost" mr={3}>
-                Cancel
-              </Button>
-              <Button onClick={handleImport} colorScheme="teal" isDisabled={!fileTypes.includes(sourceType)}>
-                Import
-              </Button>
-            </>
-          ) : (
+          </ModalBody>
+          <ModalFooter>
             <Button
               colorScheme="teal"
               onClick={() => {
-              // Save new mappings
-              pendingMappings.forEach((num) => {
-                const info = accountInputs[num] || {};
-                setAccountMapping(num, {
-                  label: info.label || num,
-                  institution: info.institution || "Unknown",
+                // Save new mappings to store
+                pendingMappings.forEach((num) => {
+                  const info = accountInputs[num] || {};
+                  setAccountMapping(num, {
+                    label: info.label || num,
+                    institution: info.institution || "Unknown",
+                  });
                 });
-              });
 
-              // Immediately grab the fresh state
-              const updatedMappings = useBudgetStore.getState().accountMappings;
-
-              // Pass it to importCsvData
-              importCsvData(pendingData, updatedMappings);
-            }}
+                importCsvData(pendingData);
+                setStep("import");
+              }}
             >
               Save & Continue Import
             </Button>
-          )}
-        </ModalFooter>
-      </ModalContent>
-    </Modal>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+    </>
   );
 }

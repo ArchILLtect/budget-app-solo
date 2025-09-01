@@ -16,6 +16,7 @@ import { getCurrentUser } from './utils/auth'
 import { applySessionRefresh } from './utils/storeHelpers'
 import { checkTokenExpiry } from './utils/jwtUtils'
 import ProgressModal from './components/ProgressModal'
+import LoadingModal from './components/LoadingModal'
 
 
 function PageTracker() {
@@ -88,6 +89,7 @@ export default function App() {
           <PageTracker />
           <NavBar />
           <ProgressModal />
+          <LoadingModal />
           <Routes>
             <Route path="/" element={<BudgetPlannerPage />} />
             <Route path="/login" element={<LoginPage />} />

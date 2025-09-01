@@ -5,6 +5,7 @@ import {
     getUniqueTransactions,
     normalizeTransactionAmount,
 } from './storeHelpers';
+import dayjs from 'dayjs';
 
 export function formatDate(dateString, format = 'shortMonthAndDay') {
     let newDate;
@@ -121,8 +122,13 @@ export function getUniqueOrigins(txs) {
     });
     return Array.from(unique).sort((a, b) => a.localeCompare(b));
 }
-
-export const applyOneMonth = async (monthKey, acct, showToast = true) => {
+/*
+export const applyOneMonth = async (
+    monthKey,
+    acct,
+    showToast = true,
+    ignoreBeforeDate = null
+) => {
     const store = useBudgetStore.getState();
 
     // Ensure the month exists in monthlyActuals
@@ -181,7 +187,7 @@ export const applyOneMonth = async (monthKey, acct, showToast = true) => {
     );
 
     if (newSavings.length > 0) {
-        const reviewEntries = newSavings.map((s) => ({
+        let reviewEntries = newSavings.map((s) => ({
             id: s.id,
             date: s.date,
             name: s.name,
@@ -189,8 +195,45 @@ export const applyOneMonth = async (monthKey, acct, showToast = true) => {
             month: monthKey,
         }));
 
+        if (ignoreBeforeDate) {
+            const cutoff = dayjs(ignoreBeforeDate);
+            const [toIgnore, toKeep] = partition(reviewEntries, (entry) =>
+                dayjs(entry.date).isBefore(cutoff, 'day')
+            );
+
+            // Group logs by month
+            const logsByMonth = {};
+            toIgnore.forEach((entry) => {
+                console.log(entry);
+                if (!logsByMonth[entry.month]) logsByMonth[entry.month] = [];
+                logsByMonth[entry.month].push({
+                    goalId: null,
+                    date: entry.date,
+                    amount: entry.amount,
+                    name: entry.name,
+                });
+            });
+
+            // Single update per month
+            Object.entries(logsByMonth).forEach(([month, logs]) => {
+                store.addMultipleSavingsLogs(month, logs);
+            });
+
+            await new Promise(requestAnimationFrame);
+
+            reviewEntries = toKeep;
+
+            if (reviewEntries.length === 0)
+                return {
+                    e: newExpenses.length,
+                    i: newIncome.length,
+                    s: newSavings.length,
+                };
+        }
+
         // Set the queue and open modal
         store.setSavingsReviewQueue(reviewEntries);
+        // Open modal for manual review
         store.setSavingsModalOpen(true);
 
         // Return a Promise that resolves only after modal confirm
@@ -209,6 +252,318 @@ export const applyOneMonth = async (monthKey, acct, showToast = true) => {
     }
 
     return { e: newExpenses.length, i: newIncome.length, s: newSavings.length };
+};*/
+/*
+export const applyOneMonth2 = async (
+    monthKey,
+    acct,
+    showToast = true,
+    ignoreBeforeDate = null
+) => {
+    const store = useBudgetStore.getState();
+
+    // Ensure month exists
+    if (!store.monthlyActuals[monthKey]) {
+        useBudgetStore.setState((state) => ({
+            monthlyActuals: {
+                ...state.monthlyActuals,
+                [monthKey]: {
+                    actualExpenses: [],
+                    actualFixedIncomeSources: [],
+                    actualTotalNetIncome: 0,
+                    customSavings: 0,
+                },
+            },
+        }));
+    }
+
+    const existing = store.monthlyActuals[monthKey] || {};
+    const expenses = existing.actualExpenses || [];
+    const income = (existing.actualFixedIncomeSources || []).filter(
+        (i) => i.id !== 'main'
+    );
+    const savings = store.savingsLogs[monthKey] || [];
+
+    // Filter rows for this month
+    const monthRows = acct.transactions.filter((tx) => tx.date?.startsWith(monthKey));
+
+    let newExpenses = [];
+    let newIncome = [];
+    let newSavings = [];
+
+    // Process in chunks to avoid blocking
+    const chunkSize = 500;
+    for (let i = 0; i < monthRows.length; i += chunkSize) {
+        const chunk = monthRows.slice(i, i + chunkSize);
+
+        newExpenses.push(
+            ...getUniqueTransactions(
+                expenses,
+                chunk.filter((tx) => tx.type === 'expense')
+            )
+        );
+
+        newIncome.push(
+            ...getUniqueTransactions(
+                income,
+                chunk.filter((tx) => tx.type === 'income')
+            )
+        );
+
+        newSavings.push(
+            ...getUniqueTransactions(
+                savings,
+                chunk.filter((tx) => tx.type === 'savings'),
+                getSavingsKey
+            )
+        );
+
+        // Let the browser catch up
+        await new Promise(requestAnimationFrame);
+    }
+
+    const combinedIncome = [...income, ...newIncome];
+    const newTotalNetIncome = combinedIncome.reduce(
+        (sum, tx) => sum + normalizeTransactionAmount(tx),
+        0
+    );
+
+    store.updateMonthlyActuals(monthKey, {
+        actualFixedIncomeSources: combinedIncome,
+        actualTotalNetIncome: newTotalNetIncome,
+    });
+
+    // Add expenses
+    newExpenses.forEach((e) =>
+        store.addActualExpense(monthKey, { ...e, amount: normalizeTransactionAmount(e) })
+    );
+
+    // Savings handling
+    if (newSavings.length > 0) {
+        let reviewEntries = newSavings.map((s) => ({
+            id: s.id,
+            date: s.date,
+            name: s.name,
+            amount: normalizeTransactionAmount(s),
+            month: monthKey,
+        }));
+
+        if (ignoreBeforeDate) {
+            const cutoff = dayjs(ignoreBeforeDate);
+            const [toIgnore, toKeep] = partition(reviewEntries, (entry) =>
+                dayjs(entry.date).isBefore(cutoff, 'day')
+            );
+
+            // Batch ignored entries by month
+            const logsByMonth = {};
+            toIgnore.forEach((entry) => {
+                if (!logsByMonth[entry.month]) logsByMonth[entry.month] = [];
+                logsByMonth[entry.month].push({
+                    goalId: null,
+                    date: entry.date,
+                    amount: entry.amount,
+                    name: entry.name,
+                });
+            });
+
+            Object.entries(logsByMonth).forEach(([month, logs]) => {
+                store.addMultipleSavingsLogs(month, logs);
+            });
+
+            reviewEntries = toKeep;
+
+            if (reviewEntries.length === 0) {
+                return {
+                    e: newExpenses.length,
+                    i: newIncome.length,
+                    s: newSavings.length,
+                };
+            }
+        }
+
+        store.setSavingsReviewQueue(reviewEntries);
+        store.setSavingsModalOpen(true);
+
+        await new Promise((resolve) => {
+            useBudgetStore.setState({ resolveSavingsPromise: resolve });
+        });
+    }
+
+    if (showToast) {
+        toast({
+            title: 'Budget updated',
+            description: `Applied ${newExpenses.length} expenses, ${newIncome.length} income, ${newSavings.length} savings`,
+            status: 'success',
+            duration: 3000,
+        });
+    }
+
+    return { e: newExpenses.length, i: newIncome.length, s: newSavings.length };
+};
+*/
+export const applyOneMonth = async (
+    monthKey,
+    acct,
+    showToast = true,
+    ignoreBeforeDate = null
+) => {
+    const store = useBudgetStore.getState();
+
+    // Ensure month exists
+    if (!store.monthlyActuals[monthKey]) {
+        useBudgetStore.setState((state) => ({
+            monthlyActuals: {
+                ...state.monthlyActuals,
+                [monthKey]: {
+                    actualExpenses: [],
+                    actualFixedIncomeSources: [],
+                    actualTotalNetIncome: 0,
+                    customSavings: 0,
+                },
+            },
+        }));
+    }
+
+    const existing = store.monthlyActuals[monthKey] || {};
+    const expenses = existing.actualExpenses || [];
+    const income = (existing.actualFixedIncomeSources || []).filter(
+        (i) => i.id !== 'main'
+    );
+    const savings = store.savingsLogs[monthKey] || [];
+
+    // Filter rows for this month
+    const monthRows = acct.transactions.filter((tx) => tx.date?.startsWith(monthKey));
+
+    let newExpenses = [];
+    let newIncome = [];
+    let newSavings = [];
+
+    // Process in chunks to avoid blocking
+    const chunkSize = 500;
+    for (let i = 0; i < monthRows.length; i += chunkSize) {
+        const chunk = monthRows.slice(i, i + chunkSize);
+
+        newExpenses.push(
+            ...getUniqueTransactions(
+                expenses,
+                chunk.filter((tx) => tx.type === 'expense')
+            )
+        );
+
+        newIncome.push(
+            ...getUniqueTransactions(
+                income,
+                chunk.filter((tx) => tx.type === 'income')
+            )
+        );
+
+        newSavings.push(
+            ...getUniqueTransactions(
+                savings,
+                chunk.filter((tx) => tx.type === 'savings'),
+                getSavingsKey
+            )
+        );
+
+        // Let the browser catch up
+        await new Promise(requestAnimationFrame);
+    }
+
+    const combinedIncome = [...income, ...newIncome];
+    const newTotalNetIncome = combinedIncome.reduce(
+        (sum, tx) => sum + normalizeTransactionAmount(tx),
+        0
+    );
+
+    store.updateMonthlyActuals(monthKey, {
+        actualFixedIncomeSources: combinedIncome,
+        actualTotalNetIncome: newTotalNetIncome,
+    });
+
+    // Add expenses
+    newExpenses.forEach((e) =>
+        store.addActualExpense(monthKey, { ...e, amount: normalizeTransactionAmount(e) })
+    );
+
+    // Savings handling
+    if (newSavings.length > 0) {
+        let reviewEntries = newSavings.map((s) => ({
+            id: s.id,
+            date: s.date,
+            name: s.name,
+            amount: normalizeTransactionAmount(s),
+            month: monthKey,
+        }));
+
+        if (ignoreBeforeDate) {
+            const cutoff = dayjs(ignoreBeforeDate);
+            const [toIgnore, toKeep] = partition(reviewEntries, (entry) =>
+                dayjs(entry.date).isBefore(cutoff, 'day')
+            );
+
+            // Group logs by month
+            const logsByMonth = {};
+            toIgnore.forEach((entry) => {
+                (logsByMonth[entry.month] ||= []).push({
+                    goalId: null,
+                    date: entry.date,
+                    amount: entry.amount,
+                    name: entry.name,
+                });
+            });
+
+            // 🔻 SINGLE Zustand update for all months
+            if (Object.keys(logsByMonth).length) {
+                useBudgetStore.setState((state) => {
+                    const next = { ...state.savingsLogs };
+                    for (const [month, logs] of Object.entries(logsByMonth)) {
+                        const current = next[month] || [];
+                        next[month] = current.concat(logs);
+                    }
+                    return { savingsLogs: next };
+                });
+            }
+
+            reviewEntries = toKeep;
+
+            // Yield to UI so the browser can paint/respond
+            await new Promise(requestAnimationFrame);
+
+            if (reviewEntries.length === 0) {
+                return {
+                    e: newExpenses.length,
+                    i: newIncome.length,
+                    s: newSavings.length,
+                };
+            }
+        }
+
+        store.setSavingsReviewQueue(reviewEntries);
+        store.setSavingsModalOpen(true);
+
+        await new Promise((resolve) => {
+            useBudgetStore.setState({ resolveSavingsPromise: resolve });
+        });
+    }
+
+    if (showToast) {
+        toast({
+            title: 'Budget updated',
+            description: `Applied ${newExpenses.length} expenses, ${newIncome.length} income, ${newSavings.length} savings`,
+            status: 'success',
+            duration: 3000,
+        });
+    }
+
+    return { e: newExpenses.length, i: newIncome.length, s: newSavings.length };
+};
+
+const partition = (array, predicate) => {
+    return array.reduce(
+        ([pass, fail], elem) =>
+            predicate(elem) ? [[...pass, elem], fail] : [pass, [...fail, elem]],
+        [[], []]
+    );
 };
 
 // Utility to organize the data (maybe move to helpers later)

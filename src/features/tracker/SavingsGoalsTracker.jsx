@@ -33,7 +33,7 @@ export default function SavingsGoalsTracker() {
     toast({ title: 'Savings goal deleted!', status: 'error', duration: 2000 });
   };
   const handleGoalAdd = () => {
-    addSavingsGoal({ name: 'New Savings', amount: 0 })
+    addSavingsGoal({ name: 'New Savings', target: 0 })
     toast({ title: 'Savings goal added!', status: 'success', duration: 2000 });
   };
 
@@ -51,7 +51,7 @@ export default function SavingsGoalsTracker() {
   const progressData = goals.map((goal) => {
     const logs = Object.values(savingsLogs).flat().filter((l) => l.goalId === goal.id);
     const total = logs.reduce((sum, l) => sum + (l.amount || 0), 0);
-    const progress = goal.amount > 0 ? (total / goal.amount) * 100 : 0;
+    const progress = goal.target > 0 ? (total / goal.target) * 100 : 0;
     return { goal, total, progress };
   });
   
@@ -83,8 +83,8 @@ export default function SavingsGoalsTracker() {
             <Stat mb={4} textAlign="center">
               <StatLabel fontSize={'lg'}>{goal.name} {goal.id === 'yearly' ? selectedYear : ''}</StatLabel>
               <StatNumber color="green.500">
-                {/* ${total?.toLocaleString(undefined, { minimumFractionDigits: 2 })} / ${goal?.amount?.toLocaleString(undefined, { minimumFractionDigits: 2 })} */}
-                ${Number.isFinite(total) ? total.toLocaleString(undefined, { minimumFractionDigits: 2 }) : "--" } / ${Number.isFinite(goal?.amount) ? goal.amount.toLocaleString(undefined, { minimumFractionDigits: 2 }) : "--"}
+                {/* ${total?.toLocaleString(undefined, { minimumFractionDigits: 2 })} / ${goal?.target?.toLocaleString(undefined, { minimumFractionDigits: 2 })} */}
+                ${Number.isFinite(total) ? total.toLocaleString(undefined, { minimumFractionDigits: 2 }) : "--" } / ${Number.isFinite(goal?.target) ? goal.target.toLocaleString(undefined, { minimumFractionDigits: 2 }) : "--"}
               </StatNumber>
             </Stat>
             <Button size="xs" colorScheme="red" onClick={() => resetGoal()}>Reset</Button>
@@ -118,8 +118,8 @@ export default function SavingsGoalsTracker() {
                     <Input
                       type="number"
                       placeholder="Enter savings goal"
-                      value={goal.amount}
-                      onChange={(e) => updateSavingsGoal(goal.id, { amount: parseFloat(e.target.value) || 0 })}
+                      value={goal.target}
+                      onChange={(e) => updateSavingsGoal(goal.id, { target: parseFloat(e.target.value) || 0 })}
                     />
                   </HStack>
                 </Flex>
@@ -127,7 +127,7 @@ export default function SavingsGoalsTracker() {
                   You have
                   saved ${total.toLocaleString(undefined, { minimumFractionDigits: 2 })} towards
                   this goal. Your goal is to
-                  save ${goal.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}.
+                  save ${goal?.target?.toLocaleString(undefined, { minimumFractionDigits: 2 })}.
                 </Text>
                 <Text fontSize="sm" color="gray.500">
                   Adjust your monthly savings goals to stay on track with your budget.

@@ -1,17 +1,27 @@
 import {
   Modal, ModalOverlay, ModalContent, ModalHeader, ModalCloseButton,
   ModalBody, ModalFooter, Button, RadioGroup, Stack, Radio, Flex,
-  Text, useToast
+  Text, Input, Checkbox, useToast
 } from "@chakra-ui/react";
 import { useState } from "react";
 import { applyOneMonth } from "../utils/accountUtils";
 import { useBudgetStore } from "../state/budgetStore";
 import LoadingSpinner from '../components/LoadingSpinner';
 import dayjs from "dayjs";
+import { waitForIdleAndPaint } from "../utils/appUtils";
+import { startTransition } from 'react';
 
 export default function ApplyToBudgetModal({ isOpen, onClose, acct, months }) {
   const [loading, setLoading] = useState(false);
   const [scope, setScope] = useState("month");
+  const [ignoreAllSavings, setIgnoreAllSavings] = useState(false);
+  const [ignoreBeforeEnabled, setIgnoreBeforeEnabled] = useState(false);
+  const [ignoreBeforeDate, setIgnoreBeforeDate] = useState(() =>
+    dayjs().format("YYYY-MM-DD") // defaults to today
+  );
+  const setIsLoading = useBudgetStore(s => s.setIsLoading);
+  const openLoading = useBudgetStore(s => s.openLoading);
+  const closeLoading = useBudgetStore(s => s.closeLoading);
   const selectedMonth = useBudgetStore(s => s.selectedMonth);
   const selectedYearFromStore = dayjs(selectedMonth).year().toString();
   const yearFromSelected = (selectedMonth || '').slice(0, 4);
@@ -23,6 +33,10 @@ export default function ApplyToBudgetModal({ isOpen, onClose, acct, months }) {
 
   const runScopedApply = async () => {
     setLoading(true);
+    setIsLoading(true);
+    openLoading('Finalizing changes...');
+    // give the browser a chance to paint the modal
+    await new Promise(requestAnimationFrame);
     
     let targets = [];
     let total = { e:0, i:0, s:0 };
@@ -32,18 +46,23 @@ export default function ApplyToBudgetModal({ isOpen, onClose, acct, months }) {
       else if (scope === 'year') { targets = monthsForYear }
       else if (scope === 'all') { targets = months || [] }
 
-      openProgress(targets.length);
+      openProgress('Applying Transactions', targets.length);
       let processed = 0;
 
       for (const m of targets) {
-        const counts = await applyOneMonth(m, acct, /*showToast*/ false);
+        const counts = await applyOneMonth(
+          m,
+          acct,
+          false,
+          ignoreBeforeEnabled ? ignoreBeforeDate : null // pass date or null
+        );
         total.e += counts.e;
         total.i += counts.i;
         total.s += counts.s;
 
         processed++;
         updateProgress(processed);
-         await new Promise(requestAnimationFrame);
+        await new Promise(requestAnimationFrame);
       }
     } catch (err) {
       toast({
@@ -55,14 +74,20 @@ export default function ApplyToBudgetModal({ isOpen, onClose, acct, months }) {
     }
     finally {
       setLoading(false);
-      toast({
-        title: "Budget updated",
-        description: `Applied ${targets.length} month(s): ${total.e} expenses, ${total.i} income, ${total.s} savings.`,
-        status: "success",
-        duration: 4000,
-      });
       closeProgress();
       onClose();
+      // ⬇️ keep the page-level spinner up until the heavy post-render work finishes
+      await waitForIdleAndPaint();
+      startTransition(() => {
+        setIsLoading(false);
+        toast({
+          title: "Budget updated",
+          description: `Applied ${targets.length} month(s): ${total.e} expenses, ${total.i} income, ${total.s} savings.`,
+          status: "success",
+          duration: 4000,
+        });
+        closeLoading();
+      });
     }
   };
 
@@ -70,21 +95,6 @@ export default function ApplyToBudgetModal({ isOpen, onClose, acct, months }) {
     <Modal isOpen={isOpen} onClose={onClose} isCentered>
       <ModalOverlay />
       <ModalContent>
-        {loading && (
-            <Flex
-              pos="fixed"
-              top={0}
-              left={0}
-              w="100vw"
-              h="100vh"
-              zIndex="modal"
-              bg="rgba(0,0,0,0.4)"
-              justify="center"
-              align="center"
-            >
-              <LoadingSpinner />
-            </Flex>
-          )}
           <ModalHeader>Apply to Budget</ModalHeader>
           <ModalCloseButton />
           <ModalBody>
@@ -96,6 +106,22 @@ export default function ApplyToBudgetModal({ isOpen, onClose, acct, months }) {
                 <Radio value="all" isDisabled={!months || months?.length <= 0}>All Transactions ({acct?.transactions?.length.toLocaleString('en-US') || 0})</Radio>
               </Stack>
             </RadioGroup>
+            <hr style={{marginTop: 15 + "px", marginBottom: 15 + "px"}}/>
+            <Checkbox
+              isChecked={ignoreBeforeEnabled}
+              onChange={(e) => setIgnoreBeforeEnabled(e.target.checked)}
+            >
+              Ignore all savings goal linking before this date
+            </Checkbox>
+
+            {ignoreBeforeEnabled && (
+              <Input
+                type="date"
+                value={ignoreBeforeDate}
+                onChange={(e) => setIgnoreBeforeDate(e.target.value)}
+                mt={2}
+              />
+            )}
           </ModalBody>
           <ModalFooter>
             <Button variant="ghost" onClick={onClose} mr={3}>Cancel</Button>

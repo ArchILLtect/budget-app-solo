@@ -96,7 +96,7 @@ export const useBudgetStore = create(
             showExpenseInputs: true,
             showSavingsLogInputs: true,
             showGoalInputs: true,
-            savingsGoals: [{ id: 'yearly', name: 'Yearly Savings Goal', amount: 10000 }],
+            savingsGoals: [{ id: 'yearly', name: 'Yearly Savings Goal', target: 10000 }],
             savingsLogs: {}, // key: '2025-07', value: [{ amount, date }]
             monthlyPlans: {},
             // 📊 Actuals for the month
@@ -109,15 +109,50 @@ export const useBudgetStore = create(
             savingsReviewQueue: [],
             isSavingsModalOpen: false,
             resolveSavingsPromise: null,
+            isLoadingModalOpen: false,
+            loadingHeader: '',
             isConfirmModalOpen: false,
             isProgressOpen: false,
+            progressHeader: '',
             progressCount: 0,
             progressTotal: 0,
-            openProgress: (total) =>
-                set({ isProgressOpen: true, progressCount: 0, progressTotal: total }),
+            isLoading: false,
+            setIsLoading: (val) => set({ isLoading: val }),
+            addMultipleSavingsLogs: (month, logs) =>
+                set((state) => {
+                    const current = state.savingsLogs[month] || [];
+                    return {
+                        savingsLogs: {
+                            ...state.savingsLogs,
+                            [month]: [...current, ...logs],
+                        },
+                    };
+                }),
+            openProgress: (header, total) =>
+                set({
+                    isProgressOpen: true,
+                    progressHeader: header,
+                    progressCount: 0,
+                    progressTotal: total,
+                }),
             updateProgress: (count) => set({ progressCount: count }),
             closeProgress: () =>
-                set({ isProgressOpen: false, progressCount: 0, progressTotal: 0 }),
+                set({
+                    isProgressOpen: false,
+                    progressHeader: '',
+                    progressCount: 0,
+                    progressTotal: 0,
+                }),
+            openLoading: (header) =>
+                set({
+                    isLoadingModalOpen: true,
+                    loadingHeader: header,
+                }),
+            closeLoading: () =>
+                set({
+                    isLoadingModalOpen: false,
+                    loadingHeader: '',
+                }),
             setConfirmModalOpen: (open) => set({ isConfirmModalOpen: open }),
             setSavingsReviewQueue: (entries) => set({ savingsReviewQueue: entries }),
             clearSavingsReviewQueue: () => set({ savingsReviewQueue: [] }),

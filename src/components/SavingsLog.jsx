@@ -29,9 +29,9 @@ export default function SavingsLog() {
   const logsForGoal = Object.values(savingsLogs)
     .flat()
     .filter((log) => log.goalId === selectedGoal);
-
   const totalForGoal = logsForGoal.reduce((sum, e) => sum + (e.amount || 0), 0);
-  const remaining = Math.max(goal?.amount - totalForGoal, 0);
+  const rawRemaining = (goal?.target ?? 0) - totalForGoal;
+  const remaining = Number.isFinite(rawRemaining) ? Math.max(rawRemaining, 0) : 0;
   const goalComplete = remaining <= 0;
 
   // TODO: Clamp the value here also.
@@ -118,13 +118,14 @@ export default function SavingsLog() {
               value={amount}
               onChange={(e) => {
                 const raw = parseFloat(e.target.value);
-                if (isNaN(raw)) return setAmount("");
-                const clamped = Math.min(raw, remaining);
-                setAmount(clamped);
+                if (!Number.isFinite(raw)) return setAmount("");
+                // Only clamp when remaining is a finite number
+                const clamped = Number.isFinite(remaining) ? Math.min(raw, remaining) : raw;
+                // Never set NaN into the input
+                setAmount(Number.isFinite(clamped) ? clamped : "");
               }}
               width={300}
-              /* TODO: Refactor here. */
-              max={remaining ? remaining : 10000}
+              max={Number.isFinite(remaining) ? remaining : undefined}
               isDisabled={goalComplete}
             />
             <Select
@@ -132,6 +133,7 @@ export default function SavingsLog() {
               value={selectedGoal}
               onChange={(e) => setSelectedGoal(e.target.value)}
             >
+              <option value={"---"}>{"---"}</option>
               {savingsGoals.map((goal) => (
                   <option key={goal.id} value={goal.id}>{goal.name}</option>
               ))}
@@ -143,8 +145,9 @@ export default function SavingsLog() {
           <Center>
             <Text fontSize="sm" color={goalComplete ? 'green.600' : 'orange.500'}>
               {goalComplete
-                ? `✅ Goal complete!`
-                : `⚠️ $${remaining.toLocaleString()} remaining to complete "${goal?.name}"`}
+                ? `✅ Goal complete! HINT: You may need to add a new savings goal to continue saving.` //TODO: Make HINT display on new line.
+                : `⚠️ $${(Number.isFinite(remaining) ? remaining : 0).toLocaleString()} remaining to complete "${goal?.name}"`
+              }
             </Text>
           </Center>
           <hr style={{marginTop: 15 + "px", marginBottom: 15 + "px"}}/>

@@ -273,10 +273,7 @@ export const useBudgetStore = create(
                         e.id === id ? { ...e, ...updates } : e
                     );
                     return {
-                        savingsLogs: {
-                            ...state.savingsLogs,
-                            [month]: updatedLogs,
-                        },
+                        savingsLogs: { ...state.savingsLogs, [month]: updatedLogs },
                     };
                 }),
             getSavingsForMonth: (month) => {

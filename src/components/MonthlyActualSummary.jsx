@@ -81,22 +81,6 @@ export default function MonthlyActualSummary() {
         </Stack>
       </>
       }
-      <Box mb={4} px={4} py={3} borderWidth={1} borderRadius="md" bg="gray.50">
-        <StatGroup>
-          <Stat textAlign={'center'}>
-            <StatLabel>{selectedYear} Total Income</StatLabel>
-            <StatNumber color="teal.600">${totalNetIncome.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</StatNumber>
-          </Stat>
-          <Stat textAlign={'center'}>
-            <StatLabel>{selectedYear} Total Expenses</StatLabel>
-            <StatNumber color="teal.600">${totalExpensesThisYear.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</StatNumber>
-          </Stat>
-          <Stat textAlign={'center'}>
-            <StatLabel>{selectedYear} Total Savings</StatLabel>
-            <StatNumber color="teal.600">${totalSavingsThisYear.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</StatNumber>
-          </Stat>
-        </StatGroup>
-      </Box>
       <Box px={4} py={3} borderWidth={1} borderRadius="md" bg="gray.50">
         <StatGroup>
           <Stat textAlign={'center'}>
@@ -125,6 +109,23 @@ export default function MonthlyActualSummary() {
           <Text fontSize="xs" mt={1}>({savings?.toLocaleString()} of {plan.totalSavings?.toLocaleString()} planned)</Text>
         </Box>
       ) : ('')}
+      <Heading size="md" my={3}>{selectedYear} Summary</Heading>
+      <Box mb={4} px={4} py={3} borderWidth={1} borderRadius="md" bg="gray.50">
+        <StatGroup>
+          <Stat textAlign={'center'}>
+            <StatLabel>{selectedYear} Total Income</StatLabel>
+            <StatNumber color="teal.600">${totalNetIncome.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</StatNumber>
+          </Stat>
+          <Stat textAlign={'center'}>
+            <StatLabel>{selectedYear} Total Expenses</StatLabel>
+            <StatNumber color="teal.600">${totalExpensesThisYear.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</StatNumber>
+          </Stat>
+          <Stat textAlign={'center'}>
+            <StatLabel>{selectedYear} Total Savings</StatLabel>
+            <StatNumber color="teal.600">${totalSavingsThisYear.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</StatNumber>
+          </Stat>
+        </StatGroup>
+      </Box>
     </Box>
   );
 }

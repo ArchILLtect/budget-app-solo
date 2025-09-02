@@ -1,7 +1,6 @@
 import { Box, Heading, Center, Flex } from '@chakra-ui/react'
 import AccountsTracker from '../features/accounts/AccountsTracker'
 import LoadingSpinner from '../components/LoadingSpinner';
-import LoadingModal from '../components/LoadingModal';
 
 function AccountsTrackerPage() {
   const loading = useBudgetStore(s => s.isLoading);

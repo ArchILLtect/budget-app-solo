@@ -24,6 +24,7 @@ export default function SyncAccountsModal({ isOpen, onClose }) {
 
   const toast = useToast();
   const fileTypes = ["csv", "ofx"];
+  const isDemo = useBudgetStore((s) => s.isDemoUser);
 
   const resetState = () => {
     setSourceType("csv");
@@ -206,7 +207,7 @@ export default function SyncAccountsModal({ isOpen, onClose }) {
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={() => { onClose(); resetState(); }} size="lg" isCentered>
+    <Modal isOpen={isOpen} onClose={() => { onClose(); resetState(); }} size="lg">
       <ModalOverlay />
       <ModalContent>
         <ModalHeader>
@@ -216,6 +217,32 @@ export default function SyncAccountsModal({ isOpen, onClose }) {
         <ModalBody>
           {step === "import" && (
             <Stack spacing={4}>
+              {isDemo && (
+                <>
+                  <Button size="sm" variant="outline" onClick={() => {
+                    // 1) synthesize rows in-memory
+                    const sample = [
+                      { AccountNumber:'1234', AccountType:'Checking', 'Posted Date':'2025-08-03', Description:'Woodmans Grocery', Category:'groceries', Amount:'-89.12' },
+                      { AccountNumber:'1234', AccountType:'Checking', 'Posted Date':'2025-08-05', Description:'Direct Deposit',   Category:'income',    Amount:'1200.00' },
+                      { AccountNumber:'1234', AccountType:'Checking', 'Posted Date':'2025-08-09', Description:'Web Branch:TFR TO SV 457397801', Category:'transfer', Amount:'-100.00' },
+                    ];
+                    // 2) use current mapping state; if unmapped, jump to mapping step
+                    const accountNumbers = [...new Set(sample.map(r => r.AccountNumber?.trim()).filter(Boolean))];
+                    const mappings = useBudgetStore.getState().accountMappings;
+                    const unmapped = accountNumbers.filter(n => !mappings[n]);
+                    if (unmapped.length) {
+                      setPendingMappings(unmapped);
+                      setPendingData(sample);
+                      setStep("mapping");
+                    } else {
+                      importCsvData(sample, mappings);   // reuse your existing pipeline
+                    }
+                  }}>
+                    Load Sample CSV (Demo)
+                  </Button>
+                  <Text fontSize="sm" color="gray.500" align={'center'}>-- OR --</Text>
+                </>
+              )}
               <RadioGroup value={sourceType} onChange={setSourceType}>
                 <Stack direction="column">
                   <Radio value="csv">CSV File</Radio>

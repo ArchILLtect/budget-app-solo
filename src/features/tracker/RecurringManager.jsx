@@ -24,7 +24,7 @@ export default function RecurringManager() {
           <>
             {Object.values(accounts).map((account) => {
               <Box key={account.id} mt={4} color="gray.600">
-                <RecurringPaymentsCard account={account}></RecurringPaymentsCard>
+                <RecurringPaymentsCard account={account} />
               </Box>
             })}
           </>

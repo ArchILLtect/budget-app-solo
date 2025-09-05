@@ -38,6 +38,7 @@ export function findRecurringTransactions(transactions, options = {}) {
 
         groups[descKey].push({
             date: new Date(tx.date),
+            category: tx.category,
             amount: Math.abs(tx.amount),
             original: tx,
         });
@@ -143,6 +144,11 @@ export function findRecurringTransactions(transactions, options = {}) {
             description: desc,
             frequency: 'monthly',
             status: isMonthly ? 'confirmed' : 'possible',
+            category: groups[desc][0].category || null,
+            dayOfMonth: recent.map((r) => r.date.getDate()).sort((a, b) => a - b)[
+                Math.floor(recent.length / 2)
+            ],
+            id: crypto.randomUUID(),
             occurrences: recent.length,
             avgAmount: (amounts.reduce((a, b) => a + b, 0) / amounts.length).toFixed(2),
             lastDate: recent.at(-1).date.toISOString().slice(0, 10),

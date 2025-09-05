@@ -49,11 +49,6 @@ export default function AccountCard({ acct, acctNumber }) {
     [months, currentYear]
   );
 
-  /* // TODO: DEV only - Use to check for recurring payments validity
-  const recurring = findRecurringTransactions(currentAccount.transactions);
-  assessRecurring(recurring);
-  */
-
   return (
     <>
       <Flex key={acct.id} justifyContent="space-between" alignItems="center" mb={3}>

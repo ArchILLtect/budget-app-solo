@@ -175,6 +175,8 @@ export default function SyncAccountsModal({ isOpen, onClose }) {
       const accountNumber = acct.accountNumber;
 
       addOrUpdateAccount(accountNumber, {
+        accountNumber: accountNumber,
+        id: crypto.randomUUID(),
         label: accountMappings?.[accountNumber]?.label || accountNumber,
         institution: accountMappings?.[accountNumber]?.institution || "Unknown",
         lastSync: new Date().toISOString(),

@@ -96,6 +96,7 @@ export const useBudgetStore = create(
             showExpenseInputs: true,
             showSavingsLogInputs: true,
             showGoalInputs: true,
+            showRecurringTXs: false,
             savingsGoals: [{ id: 'yearly', name: 'Yearly Savings Goal', target: 10000 }],
             savingsLogs: {}, // key: '2025-07', value: [{ amount, date }]
             monthlyPlans: {},
@@ -167,6 +168,7 @@ export const useBudgetStore = create(
             setShowIncomeInputs: (value) => set(() => ({ showIncomeInputs: value })),
             setShowExpenseInputs: (value) => set(() => ({ showExpenseInputs: value })),
             setShowGoalInputs: (value) => set(() => ({ showGoalInputs: value })),
+            setShowRecurringTXs: (value) => set(() => ({ showRecurringTXs: value })),
             setSelectedMonth: (month) => set(() => ({ selectedMonth: month })),
             setFilingStatus: (value) => set(() => ({ filingStatus: value })),
             resetSavingsLogs: () => set(() => ({ savingsLogs: {} })),

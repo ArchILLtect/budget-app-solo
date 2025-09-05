@@ -1,8 +1,6 @@
 import {
-  Box, useToast, Heading, Collapse, Flex, Button
+  Box, Heading, Collapse, Flex, Button
 } from "@chakra-ui/react";
-import { useState } from "react";
-import dayjs from "dayjs";
 import { useBudgetStore } from "../../state/budgetStore";
 import RecurringPaymentsCard from "../../components/RecurringPaymentsCard";
 
@@ -27,7 +25,7 @@ export default function RecurringManager() {
             {Object.values(accounts).map((account) => {
               
               return (
-              <Box key={account.label} mt={4} color="gray.600">
+              <Box key={account.id} mt={4} color="gray.600">
                 <RecurringPaymentsCard account={account}></RecurringPaymentsCard>
               </Box>
               );

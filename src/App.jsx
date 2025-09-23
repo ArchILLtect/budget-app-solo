@@ -1,12 +1,12 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, Suspense, lazy } from 'react'
 import { ChakraProvider, Box } from '@chakra-ui/react'
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom'
 import { useBudgetStore } from './state/budgetStore'
-import BudgetPlannerPage from './pages/BudgetPlannerPage'
-import AccountsTrackerPage from './pages/AccountsTrackerPage'
-import BudgetTrackerPage from './pages/BudgetTrackerPage'
+const BudgetPlannerPage = lazy(() => import('./pages/BudgetPlannerPage'))
+const AccountsTrackerPage = lazy(() => import('./pages/AccountsTrackerPage'))
+const BudgetTrackerPage = lazy(() => import('./pages/BudgetTrackerPage'))
 import NavBar from './components/NavBar'
-import LoginPage from './pages/LoginPage'
+const LoginPage = lazy(() => import('./pages/LoginPage'))
 import AuthInitializer from './components/AuthInitializer'
 import RequireAuth from './components/RequireAuth'
 import Footer from './components/Footer'
@@ -17,6 +17,7 @@ import { applySessionRefresh } from './utils/storeHelpers'
 import { checkTokenExpiry } from './utils/jwtUtils'
 import ProgressModal from './components/ProgressModal'
 import LoadingModal from './components/LoadingModal'
+import LoadingSpinner from './components/LoadingSpinner'
 
 
 function PageTracker() {
@@ -90,14 +91,16 @@ export default function App() {
           <NavBar />
           <ProgressModal />
           <LoadingModal />
-          <Routes>
-            <Route path="/" element={<BudgetPlannerPage />} />
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/planner" element={<BudgetPlannerPage />} />
-            <Route path="/tracker" element={<BudgetTrackerPage />} />
-            <Route path="/accounts" element={<RequireAuth><AccountsTrackerPage /></RequireAuth>} />
-            <Route path="*" element={<BudgetPlannerPage />} />
-          </Routes>
+          <Suspense fallback={<Box p={6}><LoadingSpinner /></Box>}>
+            <Routes>
+              <Route path="/" element={<BudgetPlannerPage />} />
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/planner" element={<BudgetPlannerPage />} />
+              <Route path="/tracker" element={<BudgetTrackerPage />} />
+              <Route path="/accounts" element={<RequireAuth><AccountsTrackerPage /></RequireAuth>} />
+              <Route path="*" element={<BudgetPlannerPage />} />
+            </Routes>
+          </Suspense>
           <Footer />
         </Box>
       </Router>

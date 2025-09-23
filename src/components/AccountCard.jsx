@@ -3,17 +3,17 @@ import {
   HStack, VStack, Tag, Button, Table, Thead, Th, Tr, Td, Tbody,
   Center, Tooltip, ButtonGroup, useDisclosure
 } from "@chakra-ui/react";
-import { useMemo } from "react";
+import React, { useMemo, Suspense, lazy } from "react";
 import dayjs from "dayjs";
 import { formatDate, getUniqueOrigins } from "../utils/accountUtils";
 import { getMonthlyTotals, getAvailableMonths } from '../utils/storeHelpers';
 import { useBudgetStore } from "../state/budgetStore";
 // Used for DEV only:
-import { findRecurringTransactions } from "../utils/analysisUtils";
-import { assessRecurring } from "../dev/analysisDevTools";
-import ApplyToBudgetModal from "./ApplyToBudgetModal";
-import SavingsReviewModal from "./SavingsReviewModal";
-import ConfirmModal from "./ConfirmModal";
+// import { findRecurringTransactions } from "../utils/analysisUtils";
+// import { assessRecurring } from "../dev/analysisDevTools";
+const ApplyToBudgetModal = lazy(() => import('./ApplyToBudgetModal'));
+const SavingsReviewModal = lazy(() => import('./SavingsReviewModal'));
+const ConfirmModal = lazy(() => import('./ConfirmModal'));
 import { YearPill } from "./YearPill";
 
 export default function AccountCard({ acct, acctNumber }) {
@@ -30,7 +30,7 @@ export default function AccountCard({ acct, acctNumber }) {
   const { isOpen, onOpen, onClose } = useDisclosure();
 
   // All available months for THIS account: ["2025-07","2025-06",...]
-  const months = useMemo(() => getAvailableMonths(acct), [acct.transactions]);
+  const months = useMemo(() => getAvailableMonths(acct), [acct]);
   // Years present in this account’s data (ascending for nice left→right buttons)
   const years = useMemo(
     () => Array.from(new Set(months.map(m => m.slice(0,4)))).sort(),
@@ -197,14 +197,16 @@ export default function AccountCard({ acct, acctNumber }) {
                       ✅ Apply to Budget
                     </Button>
                   </Center>
-                  <ApplyToBudgetModal
-                    isOpen={isOpen}
-                    onClose={onClose}
-                    acct={acct}
-                    months={months}
-                  />
-                  <SavingsReviewModal />
-                  <ConfirmModal />
+                  <Suspense fallback={null}>
+                    <ApplyToBudgetModal
+                      isOpen={isOpen}
+                      onClose={onClose}
+                      acct={acct}
+                      months={months}
+                    />
+                    <SavingsReviewModal />
+                    <ConfirmModal />
+                  </Suspense>
                 </TabPanel>
               </>
             );

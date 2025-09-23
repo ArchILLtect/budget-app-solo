@@ -1,4 +1,5 @@
 import React from 'react';
+import { createStandaloneToast } from '@chakra-ui/react';
 import { useBudgetStore } from '../state/budgetStore';
 import {
     getSavingsKey,
@@ -6,6 +7,8 @@ import {
     normalizeTransactionAmount,
 } from './storeHelpers';
 import dayjs from 'dayjs';
+
+const { toast } = createStandaloneToast();
 
 export function formatDate(dateString, format = 'shortMonthAndDay') {
     let newDate;

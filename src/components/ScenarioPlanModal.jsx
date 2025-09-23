@@ -13,11 +13,11 @@ export default function ScenarioPlanModal({ isOpen, onClose }) {
   const monthlyActuals = useBudgetStore((s) => s.monthlyActuals);
   const currentActuals = monthlyActuals[selectedMonth];
 
-  const [applyAsActuals, setApplyAsActuals] = useState(false);
+  // const [applyAsActuals, setApplyAsActuals] = useState(false); // planned feature
   const [selectedScenario, setSelectedScenario] = useState(Object.keys(scenarios)[0] || "");
   const toast = useToast();
 
-  const handleSave = (e) => {
+  const handleSave = () => {
     const scenario = scenarios[selectedScenario];
     if (!scenario) return;
 

@@ -14,7 +14,7 @@ export default function RequireAuth({ children }) {
       // Only redirect if not expired session
       navigate('/login');
     }
-  }, [isLoggedIn, hasInitialized, sessionExpired]);
+  }, [isLoggedIn, hasInitialized, sessionExpired, navigate]);
 
   return hasInitialized && isLoggedIn && !sessionExpired ? children : null;
 }

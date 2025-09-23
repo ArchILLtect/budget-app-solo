@@ -14,7 +14,6 @@ import { startTransition } from 'react';
 export default function ApplyToBudgetModal({ isOpen, onClose, acct, months }) {
   const [loading, setLoading] = useState(false);
   const [scope, setScope] = useState("month");
-  const [ignoreAllSavings, setIgnoreAllSavings] = useState(false);
   const [ignoreBeforeEnabled, setIgnoreBeforeEnabled] = useState(false);
   const [ignoreBeforeDate, setIgnoreBeforeDate] = useState(() =>
     dayjs().format("YYYY-MM-DD") // defaults to today

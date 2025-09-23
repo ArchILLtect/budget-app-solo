@@ -5,7 +5,8 @@ import { Box,
 import ScenarioSelector from '../components/ScenarioSelector'
 import IncomeCalculator from '../features/planner/IncomeCalculator'
 import ExpenseTracker from '../features/planner/ExpenseTracker'
-import ExpensePie from '../components/ExpensePie'
+import React, { Suspense, lazy } from 'react'
+const ExpensePie = lazy(() => import('../components/ExpensePie'))
 
 // TODO: Create a toast for when a scenario is created.
 
@@ -21,7 +22,9 @@ function BudgetPlannerPage() {
         <hr style={{marginTop: 15 + "px", marginBottom: 15 + "px"}}/>
         <IncomeCalculator />
         <ExpenseTracker origin='Planner'/>
-        <ExpensePie />
+        <Suspense fallback={null}>
+          <ExpensePie />
+        </Suspense>
       </Box>
     </Box>
   )

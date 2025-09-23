@@ -8,7 +8,7 @@ export default function RecurringPaymentsCard({ account }) {
   const removeRecurring = useBudgetStore(s => s.removeRecurring ?? (() => {}));
 
   const currentAccount = account;
-  const currentTransactions = currentAccount.transactions ?? [];
+  const currentTransactions = useMemo(() => currentAccount.transactions ?? [], [currentAccount]);
   const recurring = useMemo(
     () => findRecurringTransactions(currentTransactions),
     [currentTransactions]
@@ -18,7 +18,7 @@ export default function RecurringPaymentsCard({ account }) {
     [recurring]
   );
 
-  console.log(recurring)
+  // debug: recurring analysis results available via recurring variable
 
   return (
     <Card p={4} borderWidth="1px" borderRadius="lg" bg="white" boxShadow="sm">
@@ -64,7 +64,7 @@ export default function RecurringPaymentsCard({ account }) {
               <Td borderRightWidth="2px" borderRightColor="gray.200"><Text color="gray.700" fontWeight={'bold'}>Total</Text></Td>
               <Td colSpan={3}></Td>
               <Td borderRightWidth="2px" borderRightColor="gray.200"><Text color="gray.700" fontWeight={'bold'}>{totalRecurring.toLocaleString()}</Text></Td>
-              <Td><Button size="xs" colorScheme="red" variant="outline" onClick={() => removeAllRecurring(r.id)}>Clear All TXs</Button></Td>
+              <Td><Button size="xs" colorScheme="red" variant="outline" onClick={() => {/* TODO: implement bulk clear in store if desired */}}>Clear All TXs</Button></Td>
             </Tr>
           )
         }

@@ -42,13 +42,13 @@ export default function SavingsPlanner() {
             })
             }
         }
-    }, [savingsMode, customSavings, netIncome])
+    }, [savingsMode, customSavings, netIncome, expenses, addExpense, removeExpense, updateExpense])
 
     useEffect(() => {
-    if (currentScenario) {
-        saveScenario(currentScenario);
-    }
-    }, [savingsMode, customSavings, expenses, incomeSources]);
+        if (currentScenario) {
+            saveScenario(currentScenario);
+        }
+    }, [savingsMode, customSavings, expenses, incomeSources, currentScenario, saveScenario]);
 
     return (
         <>

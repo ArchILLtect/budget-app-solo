@@ -1,6 +1,6 @@
 import {
   Modal, ModalOverlay, ModalContent, ModalHeader, ModalBody, ModalFooter,
-  ModalCloseButton, Button, Input, RadioGroup, Radio, Stack, useDisclosure
+  ModalCloseButton, Button, Input, RadioGroup, Radio, Stack
 } from '@chakra-ui/react';
 import { useState } from 'react';
 import { useBudgetStore } from '../state/budgetStore';

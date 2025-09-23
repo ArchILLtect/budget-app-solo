@@ -2,7 +2,8 @@ import {
   Box
 } from '@chakra-ui/react';
 import MonthlyPlanSummary from '../../components/MonthlyPlanSummary';
-import MonthlyActualSummary from '../../components/MonthlyActualSummary';
+import React, { Suspense, lazy } from 'react';
+const MonthlyActualSummary = lazy(() => import('../../components/MonthlyActualSummary'));
 import SavingsLog from '../../components/SavingsLog';
 import RecurringManager from './RecurringManager';
 
@@ -11,7 +12,9 @@ export default function BudgetTracker() {
   return (
     <Box>
       <MonthlyPlanSummary />
-      <MonthlyActualSummary />
+      <Suspense fallback={null}>
+        <MonthlyActualSummary />
+      </Suspense>
       <RecurringManager />
       <SavingsLog />
     </Box>

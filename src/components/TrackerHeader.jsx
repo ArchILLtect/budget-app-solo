@@ -9,7 +9,8 @@ import { Box,
 } from '@chakra-ui/react';
 import { ArrowLeftIcon, ArrowRightIcon } from '@chakra-ui/icons';
 import { useBudgetStore } from '../state/budgetStore';
-import ScenarioPlanModal from '../components/ScenarioPlanModal';
+import React, { Suspense, lazy } from 'react';
+const ScenarioPlanModal = lazy(() => import('../components/ScenarioPlanModal'));
 import dayjs from 'dayjs';
 
 // TODO: Create an edit plan modal
@@ -40,10 +41,8 @@ export default function TrackerHeader() {
         }
     };
 
-    const handleTempButton = (id) => {
-        if (window.alert('This feature coming soon!\n\nFor now you must edit the scenario in the'
-            + ' Budget Planner and then "Remove Plan" and re-"Set Plan"')) {
-        }
+    const handleTempButton = () => {
+        window.alert('This feature coming soon!\n\nFor now you must edit the scenario in the Budget Planner and then "Remove Plan" and re-"Set Plan"')
     }
 
     return (
@@ -88,7 +87,9 @@ export default function TrackerHeader() {
                     </Button>
                 </Center>
             )}
-        <ScenarioPlanModal isOpen={isOpen} onClose={onClose} />
+        <Suspense fallback={null}>
+            <ScenarioPlanModal isOpen={isOpen} onClose={onClose} />
+        </Suspense>
         </Box>
     );
 }

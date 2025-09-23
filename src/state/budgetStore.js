@@ -2,7 +2,6 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { calculateTotalTaxes, calculateNetIncome } from '../utils/calcUtils';
 import { getTransactionKey } from '../utils/storeHelpers';
-import { findRecurringTransactions } from '../utils/analysisUtils';
 import dayjs from 'dayjs';
 
 // TODO: Allow users to change overtime threshold and tax rates
@@ -301,15 +300,13 @@ export const useBudgetStore = create(
                             JSON.stringify(planData.expenses || [])
                         ),
                         actualFixedIncomeSources: JSON.parse(
-                            JSON.stringify(
-                                [
-                                    {
-                                        id: 'main',
-                                        description: 'Main (Plan)',
-                                        amount: +planData.netIncome?.toFixed(2) || 0,
-                                    },
-                                ] || []
-                            )
+                            JSON.stringify([
+                                {
+                                    id: 'main',
+                                    description: 'Main (Plan)',
+                                    amount: +planData.netIncome?.toFixed(2) || 0,
+                                },
+                            ])
                         ),
                         savingsMode: planData.savingsMode,
                         customSavings: planData.customSavings,
@@ -774,9 +771,10 @@ export const useBudgetStore = create(
         {
             name: 'budget-app-storage', // key in localStorage
             partialize: (state) => {
-                // TODO: If you do want hasInitialized persisted, just don’t strip it
+                // Intentionally strip transient auth flags from persistence
+                // eslint-disable-next-line no-unused-vars
                 const { sessionExpired, hasInitialized, ...rest } = state;
-                return rest; // don’t persist transient auth flags
+                return rest;
             },
         }
     )

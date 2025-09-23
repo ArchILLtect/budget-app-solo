@@ -1,10 +1,12 @@
 import {
-    Button, Center, Heading, Box,
-    useColorModeValue, useDisclosure
+  Button, Center, Heading, Box,
+  useColorModeValue, useDisclosure
 } from '@chakra-ui/react';
-import SyncAccountsModal from '../../components/SyncAccountsModal';
+import React, { Suspense, lazy } from 'react';
 import { useBudgetStore } from "../../state/budgetStore";
 import AccountCard from '../../components/AccountCard';
+
+const SyncAccountsModal = lazy(() => import('../../components/SyncAccountsModal'));
 
 export default function AccountsTracker() {
 
@@ -19,7 +21,9 @@ export default function AccountsTracker() {
               Sync Accounts
           </Button>
       </Center>
-      <SyncAccountsModal isOpen={isOpen} onClose={onClose} />
+      <Suspense fallback={null}>
+        <SyncAccountsModal isOpen={isOpen} onClose={onClose} />
+      </Suspense>
       {/* ...rest of the AccountsTracker UI */}
       {Object.entries(accounts).length > 0 && (
         <Box>

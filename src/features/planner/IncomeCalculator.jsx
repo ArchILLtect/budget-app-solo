@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useBudgetStore } from '../../state/budgetStore'
 import { Box, Flex, Heading, HStack, Radio, FormControl, FormLabel, Tabs,TabList,
   TabPanels, Tab, TabPanel, Stack, Text, Tooltip, Stat, StatLabel, StatNumber,
@@ -22,7 +22,7 @@ export default function IncomeCalculator({ origin = 'Planner', selectedMonth = n
   const grossTotal = useBudgetStore.getState().getTotalGrossIncome();
   const monthlyActuals = useBudgetStore((s) => s.monthlyActuals[selectedMonth]);
 
-  const activeSource = sources.find((s) => s.id === selectedId) || sources[0] || {}
+  const activeSource = useMemo(() => sources.find((s) => s.id === selectedId) || sources[0] || {}, [sources, selectedId])
   const { net, breakdown } = useBudgetStore.getState().getTotalNetIncome();
 
   const isTracker = origin === 'Tracker';
@@ -50,16 +50,18 @@ export default function IncomeCalculator({ origin = 'Planner', selectedMonth = n
     setFilingStatus(val)
   }
 
-  const handleTempButton = (id) => {
-    if (window.alert('This feature coming soon')) {
-    }
+  const handleTempButton = () => {
+    // Intentional: temporary feature placeholder
+    window.alert('This feature coming soon')
   }
 
+  // Update the active source's net when total changes
   useEffect(() => {
-    if (activeSource) {
+    if (activeSource?.id) {
       updateSource(activeSource.id, { netIncome: net })
     }
-  }, [net])
+    // include both dependencies to satisfy exhaustive-deps
+  }, [net, activeSource, updateSource])
 
   return (
     <Box borderWidth="1px" borderRadius="lg" p={4} mb={6}>

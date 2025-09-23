@@ -28,7 +28,6 @@ export default function MonthlyActualSummary() {
   const percentComplete = plan?.totalSavings ? Math.min((savings / plan.totalSavings) * 100, 100) : 0;
   const actuals = useBudgetStore((s) => s.monthlyActuals);
   const savingsLogs = useBudgetStore((s) => s.savingsLogs);
-  const monthlyActuals = useBudgetStore((s) => s.monthlyActuals[selectedMonth]);
 
   const selectedYear = dayjs(selectedMonth).format('YYYY');
   // Get all monthlyActual objects for the selected year

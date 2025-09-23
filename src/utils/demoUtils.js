@@ -48,7 +48,7 @@ export function seedDemoState(set) {
         scenarioName: 'Demo Plan',
     };*/
 
-    set((state) => ({
+    set(() => ({
         selectedMonth,
         syncedAccounts: [demoAccount],
         savingsGoals: [{ id: 'yearly', name: 'Yearly Savings Goal', amount: 10000 }],

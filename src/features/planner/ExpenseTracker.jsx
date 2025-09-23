@@ -49,7 +49,7 @@ export default function ExpenseTracker({ origin = 'Planner', selectedMonth = nul
     if (currentScenario) {
       saveScenario(currentScenario);
     }
-  }, [expenses, incomeSources]);
+  }, [expenses, incomeSources, currentScenario, saveScenario]);
 
   // ✅ SYNC toggle state on load (in case store updates later)
   useEffect(() => {

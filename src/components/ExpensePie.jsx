@@ -8,7 +8,7 @@ export default function ExpensePie() {
   const expenses = useBudgetStore((s) => s.expenses)
   const chartData = expenses
     .filter(e => e.amount > 0)
-    .map((e, i) => ({
+    .map((e) => ({
       description: e.description,
       value: e.amount,
     }))

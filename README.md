@@ -65,6 +65,14 @@ npm install
 
 ### 3. Run the dev server
 
+You can start Vite either way:
+
+```bash
+npm start
+```
+
+or
+
 ```bash
 npm run dev
 ```
@@ -87,6 +95,30 @@ src/
  ├─ utils/             # Utility modules (auth, JWT, Plaid stub, etc.)
  └─ hooks/             # Custom React hooks (useAuth)
 ```
+
+---
+
+## 📜 Available scripts
+
+These are defined in `package.json`:
+
+-   `npm start` – Start Vite dev server
+-   `npm run dev` – Same as start (Vite dev server)
+-   `npm run build` – Production build
+-   `npm run preview` – Preview built app locally
+-   `npm run lint` – Run ESLint
+
+---
+
+## 🤖 For AI coding agents
+
+Project-specific guidance for AI assistants lives in `.github/copilot-instructions.md`. It covers:
+
+-   App architecture (routes, state domains, persistence)
+-   Auth/session model (guards, overlay, cross-tab sync)
+-   Data conventions (dates, transaction normalization/dedupe)
+-   UX patterns (modals controlled via store actions)
+-   Key file references to work productively
 
 ---
 
@@ -135,3 +167,50 @@ Feature Priority Notes
 -   🗂️ AuthContext alternative Low Zustand already handles this nicely
 -   🚫 Global 401 handler Med Auto-logout if /me fails on protected fetch
 -   🔄 Sync login between tabs Low Broadcast logout across open windows
+
+---
+
+## 📥 CSV import format
+
+The accounts feature accepts CSV with the following columns (header required):
+
+-   date – Transaction date in `YYYY-MM-DD`
+-   description – Vendor/description text
+-   amount – Number (normalized to absolute value)
+-   type – One of `income`, `expense`, `savings`
+-   category – Optional free text
+
+Notes:
+
+-   Amounts are normalized to absolute values on import; sign is implied by the `type`.
+-   Duplicate prevention uses `${date}|${amount.toFixed(2)}|${description.toLowerCase().trim()}`.
+-   Transactions are sorted ascending by `date` after import.
+
+Example:
+
+```csv
+date,description,amount,type,category
+2025-08-03,Walmart Grocery,89.12,expense,groceries
+2025-08-05,Paycheck,2450.00,income,salary
+2025-08-10,Transfer to Savings,200.00,savings,
+```
+
+---
+
+## 🔐 Auth & demo mode tips
+
+-   Tokens are stored in `localStorage.token`.
+-   Demo mode: set `localStorage.token = "demo-token"` to sign in as a guest user (never expires).
+-   The app checks token freshness on mount and every 5 minutes; expired sessions show a lock overlay with re-login.
+-   Cross-tab login refresh is handled via `window.postMessage` and `storage` events; unlocking propagates across tabs.
+
+---
+
+## 🛠️ Troubleshooting
+
+-   Dev server port in use: if `5173` is busy, stop the other process or run with a different port (e.g., `npm run dev -- --port 5174`).
+-   Stale local data: in the browser console run `localStorage.removeItem('budget-app-storage')` to clear persisted store; also clear `localStorage.removeItem('token')` to log out.
+-   Session lock persists: visit `/login?bypassLock=true` to re-auth without losing work; successful login clears the lock across tabs.
+-   API base URL: if `/me` fails, set a `.env` value like `VITE_API_BASE_URL=https://your-api.example.com` and restart the dev server.
+-   CSV import errors: ensure headers match `date,description,amount,type,category` and dates are `YYYY-MM-DD`.
+-   Lint/type errors: run `npm run lint` and address reported issues; restart the dev server after large refactors.

@@ -73,6 +73,7 @@ export default function ApplyToBudgetModal({ isOpen, onClose, acct, months }) {
       });
     }
     finally {
+      
       setLoading(false);
       closeProgress();
       onClose();

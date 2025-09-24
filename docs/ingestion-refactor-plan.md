@@ -2,7 +2,7 @@
 
 Purpose: Replace the monolithic, modal-blocking, multi-write transaction import & apply flow with a pure, testable, atomic, resumable pipeline that improves correctness, UX, and performance.
 
-Last Update: 2025-09-23 (post staging + settings + batch UI + streaming integration & abort + error type tagging)
+Last Update: 2025-09-24 (baseline capture + early dedupe short-circuit + benchmark enhancements)
 
 ## High-Level Goals
 
@@ -36,14 +36,14 @@ Last Update: 2025-09-23 (post staging + settings + batch UI + streaming integrat
 | 4     | Savings queue apply sequencing                 | ✅ Partial   | Queue populated & modal triggered; linking UX present    |
 | 5     | Streaming (PapaParse worker)                   | ✅ Partial   | Streaming parser + prod modal integration + real % bar   |
 | 6     | Error & Undo support                           | ✅ Partial   | Undo implemented; error panel scaffolding + type tagging |
-| 7     | Prefetch / perf polish                         | ☐            | Not started                                              |
+| 7     | Prefetch / perf polish                         | In Progress  | Baseline + short-circuit implemented                     |
 | 8     | Final docs & cleanup                           | Partial      | README TODOs updated; plan needs ongoing sync            |
 
 ## Phase 0 – Baseline & Current Fixes
 
 -   [x] Promise-based savings linking (awaitSavingsLink / resolveSavingsLink)
 -   [x] Remove effect-driven autosaves / loops in Planner & linking flow
--   [ ] Capture baseline timings (current large CSV import) (ACTION: add simple timing console log wrapper)
+-   [x] Capture baseline timings (synthetic 5k/10k/60k/100k via benchmark Capture Baseline)
 
 ## Phase 1 – Extract Pure Ingestion
 
@@ -110,7 +110,7 @@ Last Update: 2025-09-23 (post staging + settings + batch UI + streaming integrat
 -   [x] Configurable streaming auto-thresholds (line/KB) surfaced in Settings
 -   [x] User cancel mid-stream (abort controller)
         -- [x] Progress bar: real % based on total line count estimation
--   [ ] Early dedupe short-circuit (skip classification if key already exists)
+-   [x] Early dedupe short-circuit (skip classify/infer when duplicate detected pre-classify)
 -   [ ] Memory profile check with large sample file
 -   [ ] Enable PapaParse worker mode for off-main-thread parsing
 -   [ ] Rolling duplicate ratio display during stream
@@ -151,20 +151,25 @@ Last Update: 2025-09-23 (post staging + settings + batch UI + streaming integrat
 -   [ ] (Optional) Code-split savings modals
 -   [x] Automated benchmark mounting behind debug toggle (dev-only)
 
-### Phase 7 – Next Suggested Steps (NEW)
+### Phase 7 – Next Suggested Steps (UPDATED)
 
--   [ ] Capture baseline with default fractions (export JSON from benchmark)
--   [ ] Implement early dedupe short-circuit & rerun benchmark; record: - processMs proportion shift (dedupe/key build reduction) - rowsPerSec improvement
+-   [x] Capture baseline with default fractions (synthetic; auto-download JSON)
+-   [x] Implement early dedupe short-circuit & rerun benchmark; metric `earlyShortCircuits` added
 -   [ ] Add memory sampling (Performance API or coarse heap snapshot) for large (10k+) synthetic files
--   [ ] (Optional) Persist baseline results for regression comparison
+-   [ ] (Optional) Persist baseline results for regression comparison (localStorage / file)
 
 ## Phase 8 – Documentation & Clean-Up
 
 -   [x] README future enhancement TODOs for category inference
 -   [ ] Update `.github/copilot-instructions.md` with new ingestion modules (partial)
--   [ ] Add signed amount + category inference tests
+-   [x] Add signed amount parsing tests (`normalizeRow.test.js`)
+-   [x] Add key construction tests (`buildTxKey.test.js`)
+-   [x] Add category inference coverage tests (`categoryInference.test.js`)
+-   [ ] Migrate legacy `SyncAccountsModal` CSV path to use `runIngestion` pipeline (currently still using ad-hoc parsing + legacy key helper)
+-   [x] Metrics panel developer doc (README section + instructions)
+-   [x] Persist baseline benchmark snapshots (localStorage)
 -   [ ] Remove any obsolete legacy import utilities still in repo
--   [ ] Developer guide: extending category rules & savings queue
+-   [x] Developer guide: extending category rules & savings queue
 
 ## Recently Completed (Post Original Plan)
 
@@ -189,7 +194,7 @@ Last Update: 2025-09-23 (post staging + settings + batch UI + streaming integrat
 10. Settings enhancements: per-account overrides, export/import settings JSON
 11. Maintenance log (prune/expire events persisted with timestamp)
 12. Dev audit panel for inference (accept/reject rule evolution)
-13. Early dedupe short-circuit (then re-benchmark) (NEW)
+13. Early dedupe short-circuit (then re-benchmark) (DONE)
 14. Memory sampling integration (NEW)
 
 ## Open Questions
@@ -203,5 +208,13 @@ Last Update: 2025-09-23 (post staging + settings + batch UI + streaming integrat
 Integrate the streaming parser path and progress reporting into the production `ImportTransactionsModal`, then add the error panel + telemetry visualization (unblocks performance measurement and richer analytics history).
 
 ---
+
+### Developer Guide Reference
+
+The detailed guide for extending category inference rules and enhancing the savings queue was moved to:
+
+`docs/developer/category-rules-and-savings-queue.md`
+
+Update that document when adding new rule sources, heuristics, or telemetry.
 
 (Continue checking boxes here as work proceeds.)

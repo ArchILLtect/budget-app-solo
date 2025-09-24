@@ -1,0 +1,6 @@
+date,description,amount,type,category
+2025-07-01,Paycheck,2500,income,salary
+2025-07-03,Groceries,-120.50,expense,food
+2025-07-05,Internet Bill,-65,expense,utilities
+2025-07-07,Savings Transfer,-300,savings,emergency fund
+2025-07-10,Coffee,-4.25,expense,personal

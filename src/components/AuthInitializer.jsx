@@ -13,6 +13,15 @@ export default function AuthInitializer() {
       if (user) setUser(user);
       checkTokenExpiry(); // run on mount
       setHasInitialized(true); // We've now attempted login state
+      // Maintenance: prune import history & expire very old staged txns once after hydration
+      // Delay a frame to allow Zustand persist rehydration to finish
+      requestAnimationFrame(() => {
+        try {
+          const { pruneImportHistory, expireOldStagedTransactions } = useBudgetStore.getState();
+          pruneImportHistory();
+          expireOldStagedTransactions();
+        } catch { /* noop */ }
+      });
     };
     init();
 

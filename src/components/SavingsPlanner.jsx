@@ -1,54 +1,38 @@
-
 import { Stack, Input, FormControl, FormLabel, RadioGroup, Radio } from '@chakra-ui/react'
-import { useEffect } from 'react';
 import { useBudgetStore } from '../state/budgetStore'
 
 // TODO: Use FormErrorMessage for better validation feedback
 
 export default function SavingsPlanner() {
-    const { currentScenario, expenses, updateExpense, addExpense, removeExpense,
-        saveScenario, incomeSources
-    } = useBudgetStore();
+    const { currentScenario, expenses, updateExpense, addExpense, removeExpense, saveScenario } = useBudgetStore();
     const savingsMode = useBudgetStore((s) => s.savingsMode);
     const customSavings = useBudgetStore((s) => s.customSavings);
     const setSavingsMode = useBudgetStore((s) => s.setSavingsMode);
     const setCustomSavings = useBudgetStore((s) => s.setCustomSavings);
 
     const netIncome = useBudgetStore((s) => s.getTotalNetIncome().net);
-    
-    useEffect(() => {
-        const monthlyIncome = netIncome / 12
 
-        let savingsPercent = 0
-        if (savingsMode === '10') savingsPercent = 0.1
-        else if (savingsMode === '20') savingsPercent = 0.2
-        else if (savingsMode === 'custom' && customSavings)
-            savingsPercent = customSavings / 100
+    // Apply the savings line based on current inputs (called from event handlers only)
+    const applySavings = (nextMode, nextCustom) => {
+        const monthlyIncome = (Number(netIncome) || 0) / 12;
+        let pct = 0;
+        if (nextMode === '10') pct = 0.1;
+        else if (nextMode === '20') pct = 0.2;
+        else if (nextMode === 'custom') pct = (Number(nextCustom) || 0) / 100;
 
-        const savingsAmount = parseFloat((monthlyIncome * savingsPercent).toFixed(2))
+        const amount = +(monthlyIncome * pct).toFixed(2);
+        const existing = expenses.find((e) => e.id === 'savings');
 
-        const existing = expenses.find((e) => e.id === 'savings')
-        if (savingsMode === 'none') {
-            if (existing) removeExpense('savings')
+        if (pct <= 0) {
+            if (existing) removeExpense('savings');
+            return;
+        }
+        if (existing) {
+            if (existing.amount !== amount) updateExpense('savings', { amount });
         } else {
-            if (existing) {
-            updateExpense('savings', { amount: savingsAmount })
-            } else {
-            addExpense({
-                id: 'savings',
-                name: 'Savings',
-                amount: savingsAmount,
-                isSavings: true,
-            })
-            }
+            addExpense({ id: 'savings', name: 'Savings', amount, isSavings: true });
         }
-    }, [savingsMode, customSavings, netIncome, expenses, addExpense, removeExpense, updateExpense])
-
-    useEffect(() => {
-        if (currentScenario) {
-            saveScenario(currentScenario);
-        }
-    }, [savingsMode, customSavings, expenses, incomeSources, currentScenario, saveScenario]);
+    };
 
     return (
         <>
@@ -56,7 +40,15 @@ export default function SavingsPlanner() {
                 <FormLabel fontWeight="semibold">Include Savings?</FormLabel>
                 <RadioGroup
                     value={savingsMode}
-                    onChange={(val) => setSavingsMode(val)}
+                    onChange={(next) => {
+                        if (next !== savingsMode) {
+                            setSavingsMode(next);
+                            const nextCustom = next === 'custom' ? (customSavings ?? 0) : 0;
+                            if (next !== 'custom' && (customSavings ?? 0) !== 0) setCustomSavings(0);
+                            applySavings(next, nextCustom);
+                            if (currentScenario) saveScenario(currentScenario);
+                        }
+                    }}
                 >
                     <Stack direction="row">
                         <Radio value="none">None</Radio>
@@ -71,13 +63,19 @@ export default function SavingsPlanner() {
                         mt={2}
                         type="number"
                         max={100}
-                        min={1}
-                        value={customSavings || ''}
+                        min={0}
+                        value={customSavings ?? 0}
                         placeholder="Enter custom %"
                         onChange={(e) => {
-                            const raw = parseFloat(e.target.value) || 0
-                            const clamped = Math.min(Math.max(raw, 1), 100)
-                            setCustomSavings(clamped)
+                            const raw = Number(e.target.value);
+                            const val = Number.isFinite(raw) ? raw : 0;
+                            const clamped = Math.max(0, Math.min(100, val));
+                            if (clamped !== (customSavings ?? 0)) {
+                                if (savingsMode !== 'custom') setSavingsMode('custom');
+                                setCustomSavings(clamped);
+                                applySavings('custom', clamped);
+                                if (currentScenario) saveScenario(currentScenario);
+                            }
                         }}
                     />
                 )}

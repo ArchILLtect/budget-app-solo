@@ -5,6 +5,8 @@ import { useBudgetStore } from './state/budgetStore'
 const BudgetPlannerPage = lazy(() => import('./pages/BudgetPlannerPage'))
 const AccountsTrackerPage = lazy(() => import('./pages/AccountsTrackerPage'))
 const BudgetTrackerPage = lazy(() => import('./pages/BudgetTrackerPage'))
+const ImportHistoryPage = lazy(() => import('./pages/ImportHistoryPage'))
+const SettingsPage = lazy(() => import('./pages/SettingsPage'))
 import NavBar from './components/NavBar'
 const LoginPage = lazy(() => import('./pages/LoginPage'))
 import AuthInitializer from './components/AuthInitializer'
@@ -17,7 +19,10 @@ import { applySessionRefresh } from './utils/storeHelpers'
 import { checkTokenExpiry } from './utils/jwtUtils'
 import ProgressModal from './components/ProgressModal'
 import LoadingModal from './components/LoadingModal'
-import LoadingSpinner from './components/LoadingSpinner'
+import InlineSpinner from './components/InlineSpinner.jsx'
+const IngestionBenchmark = lazy(() => import('./dev/IngestionBenchmark.jsx'));
+import { IconButton } from '@chakra-ui/react';
+import { CloseIcon } from '@chakra-ui/icons';
 
 
 function PageTracker() {
@@ -35,14 +40,17 @@ function PageTracker() {
 }
 
 export default function App() {
+  // Always call hooks (no conditional). Gate behavior afterwards.
+  const showBenchmarkRaw = useBudgetStore(s => s.showIngestionBenchmark);
+  const setShowIngestionBenchmark = useBudgetStore(s => s.setShowIngestionBenchmark);
+  const showIngestionBenchmark = import.meta.env.DEV && showBenchmarkRaw;
 
-  //This is a workaround to ensure useBudgetStore is available globally
-  //This is useful for debugging in the browser console
-  //and for accessing the store in components that don't use hooks directly
-  //Remove this in production
-  if (typeof window !== 'undefined') {
-    window.useBudgetStore = useBudgetStore;
-  }
+  // Expose store for debugging only in dev (no hooks in conditional)
+  useEffect(() => {
+    if (import.meta.env.DEV && typeof window !== 'undefined') {
+      window.useBudgetStore = useBudgetStore;
+    }
+  }, []);
 
   useEffect(() => {
     const handleMessage = (event) => {
@@ -91,12 +99,32 @@ export default function App() {
           <NavBar />
           <ProgressModal />
           <LoadingModal />
-          <Suspense fallback={<Box p={6}><LoadingSpinner /></Box>}>
+
+          {import.meta.env.DEV && showIngestionBenchmark && (
+            <Box
+              bg="gray.300"
+              color="gray.900"
+              borderTop="2px solid"
+              borderColor="purple.500"
+              zIndex={2100}
+              fontSize="sm"
+              boxShadow="0 -4px 10px rgba(0,0,0,0.35)"
+            >
+              <Suspense fallback={null}>
+                <IngestionBenchmark
+                  onRequestClose={() => setShowIngestionBenchmark(false)}
+                />
+              </Suspense>
+            </Box>
+          )}
+          <Suspense fallback={<InlineSpinner /> }>
             <Routes>
               <Route path="/" element={<BudgetPlannerPage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/planner" element={<BudgetPlannerPage />} />
               <Route path="/tracker" element={<BudgetTrackerPage />} />
+              <Route path="/imports" element={<ImportHistoryPage />} />
+              <Route path="/settings" element={<SettingsPage />} />
               <Route path="/accounts" element={<RequireAuth><AccountsTrackerPage /></RequireAuth>} />
               <Route path="*" element={<BudgetPlannerPage />} />
             </Routes>

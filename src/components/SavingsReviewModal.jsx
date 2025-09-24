@@ -11,11 +11,9 @@ export default function SavingsReviewModal() {
   const addSavingsGoal = useBudgetStore((s) => s.addSavingsGoal);
   const queue = useBudgetStore((s) => s.savingsReviewQueue);
   const addSavingsLog = useBudgetStore((s) => s.addSavingsLog);
-  const clearQueue = useBudgetStore((s) => s.clearSavingsReviewQueue);
   const isOpen = useBudgetStore((s) => s.isSavingsModalOpen);
-  const setIsOpen = useBudgetStore((s) => s.setSavingsModalOpen);
   const setConfirm = useBudgetStore((s) => s.setConfirmModalOpen);
-  const resolvePromise = useBudgetStore((s) => s.resolveSavingsPromise);
+  const resolveSavingsLink = useBudgetStore((s) => s.resolveSavingsLink);
 
   // Track which goal is selected for each entry
   const [selectedGoals, setSelectedGoals] = useState({});
@@ -76,11 +74,8 @@ export default function SavingsReviewModal() {
         name: entry.name,
       });
     });
-
-    clearQueue();
-    setIsOpen(false);
-    resolvePromise();
-    useBudgetStore.setState({ resolveSavingsPromise: null });
+    // Resolve and cleanup centrally
+    resolveSavingsLink(true);
   
   };
 

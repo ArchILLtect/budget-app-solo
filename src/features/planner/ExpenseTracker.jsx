@@ -6,13 +6,13 @@ import {
   Checkbox, Text
 } from '@chakra-ui/react'
 import { AddIcon, DeleteIcon, InfoIcon } from '@chakra-ui/icons'
-import SavingsPlanner from '../../components/SavingsPlanner';
+import SavingsPlanner from '../../components/SavingsPlanner.jsx';
 
 // TODO: Use FormErrorMessage for better validation feedback
 
 export default function ExpenseTracker({ origin = 'Planner', selectedMonth = null }) {
   const { currentScenario,
-    saveScenario, showExpenseInputs, setShowExpenseInputs, incomeSources
+    saveScenario, showExpenseInputs, setShowExpenseInputs
   } = useBudgetStore();
   const plannerExpenses = useBudgetStore((s) => s.expenses);
   const addExpenseRaw = useBudgetStore((s) => s.addExpense);
@@ -32,24 +32,34 @@ export default function ExpenseTracker({ origin = 'Planner', selectedMonth = nul
   const expenses = isTracker ? trackerExpenses : plannerExpenses;
   const addExpense = isTracker
     ? (entry) => addActualExpense(selectedMonth, entry)
-    : addExpenseRaw;
+    : (entry) => {
+        addExpenseRaw(entry);
+        if (currentScenario) saveScenario(currentScenario);
+      };
   const updateExpense = isTracker
     ? (id, data) => updateMonthlyExpenseActuals(selectedMonth, id, data)
-    : updateExpenseRaw;
+    : (id, data) => {
+        updateExpenseRaw(id, data);
+        if (currentScenario) saveScenario(currentScenario);
+      };
   const removeExpense = isTracker
     ? (id) => removeActualExpense(selectedMonth, id)
-    : removeExpenseRaw;
+    : (id) => {
+        removeExpenseRaw(id);
+        if (currentScenario) saveScenario(currentScenario);
+      };
   const netIncome = useBudgetStore((s) => s.getTotalNetIncome().net);
   const monthlyIncome = netIncome / 12;
   const totalExpenses = expenses.reduce((sum, e) => sum + (e.amount || 0), 0)
   const savingsValue = expenses.find(e => e.id === 'savings')?.amount || 0
   const leftover = monthlyIncome - totalExpenses;
 
-  useEffect(() => {
-    if (currentScenario) {
-      saveScenario(currentScenario);
-    }
-  }, [expenses, incomeSources, currentScenario, saveScenario]);
+  // Removed autosave effect that caused initial overwrite of defaults
+  // useEffect(() => {
+  //   if (currentScenario) {
+  //     saveScenario(currentScenario);
+  //   }
+  // }, [expenses, incomeSources, currentScenario, saveScenario]);
 
   // ✅ SYNC toggle state on load (in case store updates later)
   useEffect(() => {

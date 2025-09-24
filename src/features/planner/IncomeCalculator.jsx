@@ -55,13 +55,18 @@ export default function IncomeCalculator({ origin = 'Planner', selectedMonth = n
     window.alert('This feature coming soon')
   }
 
-  // Update the active source's net when total changes
+  // Update the active source's net when total changes, guarded to avoid loops
+  const activeSourceId = activeSource?.id
+  const activeSourceNetIncome = activeSource?.netIncome
   useEffect(() => {
-    if (activeSource?.id) {
-      updateSource(activeSource.id, { netIncome: net })
+    if (!activeSourceId) return
+    const nextNet = Number(net) || 0
+    const currentNet = Number(activeSourceNetIncome) || 0
+    if (currentNet !== nextNet) {
+      updateSource(activeSourceId, { netIncome: nextNet })
     }
-    // include both dependencies to satisfy exhaustive-deps
-  }, [net, activeSource, updateSource])
+    // IMPORTANT: depend only on the specific fields, not the whole source object/array
+  }, [activeSourceId, activeSourceNetIncome, net, updateSource])
 
   return (
     <Box borderWidth="1px" borderRadius="lg" p={4} mb={6}>

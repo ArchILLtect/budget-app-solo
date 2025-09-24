@@ -10,7 +10,7 @@ export default function ConfirmModal() {
   const isOpen = useBudgetStore((s) => s.isConfirmModalOpen);
   const setIsOpen = useBudgetStore((s) => s.setConfirmModalOpen);
   const clearQueue = useBudgetStore((s) => s.clearSavingsReviewQueue);
-  const resolvePromise = useBudgetStore((s) => s.resolveSavingsPromise);
+  const resolveSavingsLink = useBudgetStore((s) => s.resolveSavingsLink);
 
   const handleClose = () => {
     setIsOpen(false);
@@ -19,8 +19,7 @@ export default function ConfirmModal() {
   const handleSubmit = () => {
     setIsOpen(false);
     clearQueue();
-    resolvePromise();
-    useBudgetStore.setState({ resolveSavingsPromise: null });
+    resolveSavingsLink(false);
   };
 
   return (

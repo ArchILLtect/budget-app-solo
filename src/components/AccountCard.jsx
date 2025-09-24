@@ -4,6 +4,7 @@ import {
   Center, Tooltip, ButtonGroup, useDisclosure
 } from "@chakra-ui/react";
 import React, { useMemo, Suspense, lazy } from "react";
+import InlineSpinner from './InlineSpinner.jsx';
 import dayjs from "dayjs";
 import { formatDate, getUniqueOrigins } from "../utils/accountUtils";
 import { getMonthlyTotals, getAvailableMonths } from '../utils/storeHelpers';
@@ -15,19 +16,28 @@ const ApplyToBudgetModal = lazy(() => import('./ApplyToBudgetModal'));
 const SavingsReviewModal = lazy(() => import('./SavingsReviewModal'));
 const ConfirmModal = lazy(() => import('./ConfirmModal'));
 import { YearPill } from "./YearPill";
+import { Menu, MenuButton, MenuList, MenuItem, IconButton, Badge } from '@chakra-ui/react';
+import { ChevronDownIcon } from '@chakra-ui/icons';
 
 export default function AccountCard({ acct, acctNumber }) {
   const ORIGIN_COLOR_MAP = useBudgetStore((s) => s.ORIGIN_COLOR_MAP);
   const accounts = useBudgetStore((s) => s.accounts);
   const removeAccount = useBudgetStore((s) => s.removeAccount); 
-  const accountMappings = useBudgetStore(s => s.accountMappings);
   const selectedMonth = useBudgetStore((s) => s.selectedMonth);
   const setSelectedMonth = useBudgetStore((s) => s.setSelectedMonth);
   const currentAccount = accounts[acctNumber];
   const currentTransactions = currentAccount.transactions;
+  const getAccountStagedSessionSummaries = useBudgetStore(s => s.getAccountStagedSessionSummaries);
+  const undoStagedImport = useBudgetStore(s => s.undoStagedImport);
+  const sessionEntries = getAccountStagedSessionSummaries(acct.accountNumber);
+  const stagedCount = sessionEntries.reduce((sum, s) => sum + (s.stagedNow || s.count || 0), 0);
   const institution = acct.institution || "Institution Unknown";
-  const accountLabel = accountMappings[acctNumber].label || acct.name;
+
   const { isOpen, onOpen, onClose } = useDisclosure();
+
+  // Add safe fallbacks where label is read.
+  const account = currentAccount;
+  const displayLabel = account?.label || account?.accountNumber || 'Account';
 
   // All available months for THIS account: ["2025-07","2025-06",...]
   const months = useMemo(() => getAvailableMonths(acct), [acct]);
@@ -53,7 +63,7 @@ export default function AccountCard({ acct, acctNumber }) {
     <>
       <Flex key={acct.id} justifyContent="space-between" alignItems="center" mb={3}>
         <VStack align="start" spacing={0}>
-          <Text fontWeight="bold">{accountLabel}</Text>
+          <Text fontWeight="bold">{displayLabel}</Text>
           <Text fontSize="sm" color="gray.500">
             {institution}
           </Text>
@@ -70,6 +80,66 @@ export default function AccountCard({ acct, acctNumber }) {
                 </Tag>
               </Tooltip>
             ))}
+            {stagedCount > 0 && (
+              <Menu placement="bottom-start" closeOnSelect={false}>
+                <Tooltip label={`${stagedCount} staged (click for details / undo)`} hasArrow>
+                  <MenuButton as={Tag} size="sm" cursor="pointer" colorScheme="yellow" display="flex" alignItems="center" gap={1}>
+                    {stagedCount} STAGED <ChevronDownIcon />
+                  </MenuButton>
+                </Tooltip>
+                <MenuList fontSize="xs" maxW="320px">
+                  {sessionEntries.map(se => {
+                    const minutesLeft = se.status === 'active' && se.expiresAt ? Math.max(0, Math.ceil((se.expiresAt - Date.now())/60000)) : null;
+                    const statusColor = {
+                      active: 'yellow',
+                      expired: 'gray',
+                      applied: 'teal',
+                      'partial-applied': 'purple',
+                      undone: 'red',
+                      'partial-undone': 'orange'
+                    }[se.status] || 'blue';
+                    const progressPct = se.newCount ? Math.round(((se.appliedCount || 0) / se.newCount) * 100) : 0;
+                    return (
+                      <MenuItem as={Box} key={se.sessionId} closeOnSelect={false} _focus={{ outline: 'none', bg: 'transparent' }} _hover={{ bg: 'gray.50' }}>
+                        <Flex direction="column" w="100%" gap={1}>
+                          <Flex justify="space-between" align="center" gap={2}>
+                            <HStack spacing={1} align="center">
+                              <Text fontSize="xs" fontWeight="bold" isTruncated title={se.sessionId}>{se.sessionId.slice(0,8)}</Text>
+                              <Badge colorScheme={statusColor} fontSize="0.55rem" px={1}>{se.status?.replace('-', ' ') || '—'}</Badge>
+                              {se.status && se.status.startsWith('partial') && (
+                                <Badge colorScheme='pink' fontSize='0.5rem'>{progressPct}%</Badge>
+                              )}
+                            </HStack>
+                            <HStack spacing={1}>
+                              {minutesLeft !== null && <Text fontSize="8px" color="orange.600">{minutesLeft}m</Text>}
+                              <Button size="xs" variant="outline" colorScheme="red" isDisabled={!se.canUndo} onClick={() => se.canUndo && undoStagedImport(acct.accountNumber, se.sessionId)}>Undo</Button>
+                            </HStack>
+                          </Flex>
+                          <Text fontSize="9px" color="gray.600">Staged: {se.stagedNow || se.count} / New: {se.newCount ?? '—'}{se.removed ? ` | Removed: ${se.removed}` : ''}</Text>
+                          {se.status === 'partial-applied' && (
+                            <Box h='4px' bg='purple.100' borderRadius='sm'>
+                              <Box h='100%' w={`${progressPct}%`} bg='purple.400' borderRadius='sm'></Box>
+                            </Box>
+                          )}
+                          {se.status === 'partial-undone' && (
+                            <Box h='4px' bg='orange.100' borderRadius='sm'>
+                              <Box h='100%' w={`${progressPct}%`} bg='orange.400' borderRadius='sm'></Box>
+                            </Box>
+                          )}
+                          {se.savingsCount !== undefined && (
+                            <Text fontSize="9px" color="gray.600">Savings: {se.savingsCount} | Hash: {se.hash?.slice(0,8)}</Text>
+                          )}
+                          {se.importedAt && (
+                            <Text fontSize="8px" color="gray.500">{dayjs(se.importedAt).format('MMM D HH:mm')} • {se.status}</Text>
+                          )}
+                        </Flex>
+                      </MenuItem>
+                    );
+                  })}
+                  {sessionEntries.length === 0 && <MenuItem disabled>No staged sessions</MenuItem>}
+                </MenuList>
+              </Menu>
+            )}
           </HStack>
           <Button size="xs" colorScheme="red" onClick={() => removeAccount(acctNumber)}>
               Remove
@@ -80,36 +150,6 @@ export default function AccountCard({ acct, acctNumber }) {
       <ButtonGroup isAttached={false} spacing={2}>
           <YearPill months={months} />
       </ButtonGroup>
-
-      {/*
-      <Flex key={acct.id} direction={'row'} alignItems="center" mb={3} bg={'gray.100'} rounded={'lg'}>
-        {years.map((y) => {
-          const isActive = y === currentYear;
-          return (
-            <Box key={y} p={3}>
-              <Button
-                onClick={() => {
-                  const currentMonthNum = dayjs(selectedMonth).format('MM');
-                  const sameMonthKey = `${y}-${currentMonthNum}`;
-                  // Prefer the same month index if it exists in this year; else pick latest available in that year
-                  const target =
-                    months.includes(sameMonthKey)
-                      ? sameMonthKey
-                      : months.filter(m => m.startsWith(y)).sort().at(-1);
-                  if (target) setSelectedMonth(target);
-                }}
-                colorScheme={isActive ? 'teal' : 'gray'}
-                variant={isActive ? 'solid' : 'ghost'}
-                fontWeight={isActive ? 'bold' : 'normal'}
-                size="md"
-              >
-                {y}
-              </Button>
-            </Box>
-          );
-        })}
-      </Flex>
-      */}
 
       {/* ✅ Monthly Tabbed View Here */}
       <Tabs
@@ -151,12 +191,14 @@ export default function AccountCard({ acct, acctNumber }) {
                         </Tr>
                       </Thead>
                       <Tbody>
-                        {monthRows.map((tx) => (
-                          <Tr key={tx.id}>
+                        {monthRows.map((tx) => {
+                          const appliedFromSession = tx.importSessionId && !tx.staged && tx.budgetApplied;
+                          return (
+                          <Tr key={tx.id} bg={tx.staged ? 'yellow.50' : (appliedFromSession ? 'teal.50' : undefined)} opacity={tx.staged ? 0.85 : 1}>
                             <Td whiteSpace={'nowrap'}>{formatDate(tx.date)}</Td>
                             <Td>{tx.description}</Td>
-                            <Td isNumeric color={tx.amount < 0 ? "red.500" : "green.600"}>
-                              ${Math.abs(tx.amount).toFixed(2)}
+                            <Td isNumeric color={(tx.rawAmount ?? 0) < 0 ? "red.500" : "green.600"}>
+                              ${Math.abs(tx.rawAmount ?? tx.amount).toFixed(2)}
                             </Td>
                             <Td>
                               <Tag
@@ -169,12 +211,13 @@ export default function AccountCard({ acct, acctNumber }) {
                                     : "orange"
                                 }
                               >
-                                {tx.type}
+                                {tx.type}{tx.staged ? '*' : (appliedFromSession ? '' : '')}
                               </Tag>
                             </Td>
                             <Td>{tx.category || "—"}</Td>
                           </Tr>
-                        ))}
+                          );
+                        })}
                       </Tbody>
                     </Table>
                   </Box>
@@ -197,7 +240,7 @@ export default function AccountCard({ acct, acctNumber }) {
                       ✅ Apply to Budget
                     </Button>
                   </Center>
-                  <Suspense fallback={null}>
+                  <Suspense fallback={<InlineSpinner />}>
                     <ApplyToBudgetModal
                       isOpen={isOpen}
                       onClose={onClose}

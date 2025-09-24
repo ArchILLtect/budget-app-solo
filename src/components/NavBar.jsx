@@ -77,6 +77,30 @@ export default function NavBar() {
           >
             Tracker
           </Link>
+          <Link
+            as={RouterLink}
+            to="/imports"
+            px={3}
+            py={2}
+            rounded="md"
+            _hover={{ bg: 'teal.600', color: 'white' }}
+            _activeLink={{ bg: 'teal.700', fontWeight: 'bold', color: 'white' }}
+            color="white"
+          >
+            Imports
+          </Link>
+          <Link
+            as={RouterLink}
+            to="/settings"
+            px={3}
+            py={2}
+            rounded="md"
+            _hover={{ bg: 'teal.600', color: 'white' }}
+            _activeLink={{ bg: 'teal.700', fontWeight: 'bold', color: 'white' }}
+            color="white"
+          >
+            Settings
+          </Link>
         </HStack>
       </Flex>
     </Box>

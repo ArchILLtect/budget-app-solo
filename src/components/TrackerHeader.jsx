@@ -10,6 +10,7 @@ import { Box,
 import { ArrowLeftIcon, ArrowRightIcon } from '@chakra-ui/icons';
 import { useBudgetStore } from '../state/budgetStore';
 import React, { Suspense, lazy } from 'react';
+import InlineSpinner from './InlineSpinner.jsx';
 const ScenarioPlanModal = lazy(() => import('../components/ScenarioPlanModal'));
 import dayjs from 'dayjs';
 
@@ -87,7 +88,7 @@ export default function TrackerHeader() {
                     </Button>
                 </Center>
             )}
-        <Suspense fallback={null}>
+        <Suspense fallback={<InlineSpinner />}>
             <ScenarioPlanModal isOpen={isOpen} onClose={onClose} />
         </Suspense>
         </Box>

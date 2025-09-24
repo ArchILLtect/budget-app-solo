@@ -28,6 +28,8 @@ export default function ApplyToBudgetModal({ isOpen, onClose, acct, months }) {
   const transactionsThisYear = acct.transactions.filter((tx) => tx.date?.startsWith(selectedYearFromStore));
   const monthsForYear = months?.filter(m => m.startsWith(yearFromSelected)) || [];
   const { openProgress, updateProgress, closeProgress } = useBudgetStore.getState();
+  const markTransactionsBudgetApplied = useBudgetStore(s => s.markTransactionsBudgetApplied);
+  const processPendingSavingsForAccount = useBudgetStore(s => s.processPendingSavingsForAccount);
   const toast = useToast();
 
   const runScopedApply = async () => {
@@ -63,6 +65,12 @@ export default function ApplyToBudgetModal({ isOpen, onClose, acct, months }) {
         updateProgress(processed);
         await new Promise(requestAnimationFrame);
       }
+
+      // Mark staged transactions as applied for selected scope
+      const monthsApplied = targets;
+      markTransactionsBudgetApplied(acct.accountNumber || acct.account || acct.label, monthsApplied);
+      // Move any pending savings for these months into review queue
+      processPendingSavingsForAccount(acct.accountNumber || acct.account || acct.label, monthsApplied);
     } catch (err) {
       toast({
         title: "Error applying budget",

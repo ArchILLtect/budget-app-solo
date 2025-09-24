@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { calculateTotalTaxes, calculateNetIncome } from '../utils/calcUtils';
-import { getTransactionKey } from '../utils/storeHelpers';
+import { getStrongTransactionKey } from '../utils/storeHelpers';
 import dayjs from 'dayjs';
 
 // TODO: Allow users to change overtime threshold and tax rates
@@ -19,7 +19,7 @@ export const useBudgetStore = create(
             },
             currentPage: 'planner', // or null initially
             user: null, // User object will be set after login
-            filingStatus: 'headOfHousehold', // 'single' | 'marriedSeparate' | 'marriedJoint' | 'headOfHousehold'
+            filingStatus: 'headOfHousehold', // 'single' | 'marriedSeparate' | 'marriedJoint' | 'headOfHouseHold'
             incomeSources: [
                 {
                     id: 'primary',
@@ -50,7 +50,7 @@ export const useBudgetStore = create(
                         { id: 'rent', name: 'Rent', description: 'Rent', amount: 0 },
                     ],
                     savingsMode: '20',
-                    filingStatus: 'single', // 'single' | 'marriedSeparate' | 'marriedJoint' | 'headOfHousehold'
+                    filingStatus: 'single', // 'single' | 'marriedSeparate' | 'marriedJoint' | 'headOfHouseHold'
                 },
                 College: {
                     name: 'College',
@@ -69,7 +69,7 @@ export const useBudgetStore = create(
                     expenses: [
                         { id: 'rent', name: 'Rent', description: 'Rent', amount: 1000 },
                     ],
-                    filingStatus: 'single', // 'single' | 'marriedSeparate' | 'marriedJoint' | 'headOfHousehold'
+                    filingStatus: 'single', // 'single' | 'marriedSeparate' | 'marriedJoint' | 'headOfHouseHold'
                     customSavings: 0,
                     savingsMode: '10',
                 },
@@ -107,7 +107,25 @@ export const useBudgetStore = create(
             isDemoUser: false,
             accountMappings: {},
             accounts: {},
+            // Staging model: savings queue entries per account waiting for budget application
+            pendingSavingsByAccount: {}, // { [accountNumber]: [queueEntry, ...] }
             savingsReviewQueue: [],
+            // Persisted import history for audit & undo (latest first)
+            importHistory: [], // [{ sessionId, accountNumber, importedAt, newCount, dupesExisting, dupesIntraFile, savingsCount, hash, undoneAt? }]
+            // Optional refinement TODOs (staging/import lifecycle):
+            // - (Optional) Centralize per-session runtime status computation (active/applied/partial/expired/undone) as a derived selector to DRY logic across UI components.
+            // - (Optional) Persist lightweight analytics (e.g. avg dedupe ratio, category inference hit rate) for future insights panel.
+            // - (Optional) Add background worker for streaming CSV parse & progressive dedupe feedback.
+            // - (Optional) Expose a settings UI to adjust undo window, auto-expiration days, and import history retention size.
+            importUndoWindowMinutes: 30, // configurable (future settings panel) window in which a staged session can be undone
+            importHistoryMaxEntries: 30,
+            importHistoryMaxAgeDays: 30,
+            stagedAutoExpireDays: 30,
+            // Streaming auto-toggle thresholds (user configurable)
+            streamingAutoLineThreshold: 3000, // lines
+            streamingAutoByteThreshold: 500_000, // bytes (~0.5MB)
+            // Dev-only benchmark panel toggle (not persisted via partialize for safety)
+            showIngestionBenchmark: false,
             isSavingsModalOpen: false,
             resolveSavingsPromise: null,
             isLoadingModalOpen: false,
@@ -119,6 +137,337 @@ export const useBudgetStore = create(
             progressTotal: 0,
             isLoading: false,
             setIsLoading: (val) => set({ isLoading: val }),
+            // Phase 2: import manifests (file hash -> accounts -> metadata)
+            importManifests: {},
+            // Last ingestion telemetry (persisted for tuning)
+            lastIngestionTelemetry: null,
+            setLastIngestionTelemetry: (telemetry) =>
+                set(() => ({ lastIngestionTelemetry: telemetry })),
+            registerImportManifest: (hash, accountNumber, meta) =>
+                set((state) => {
+                    const existing = state.importManifests[hash] || {
+                        firstImportedAt: new Date().toISOString(),
+                        accounts: {},
+                        size: meta?.size || 0,
+                        sampleName: meta?.sampleName || '',
+                    };
+                    return {
+                        importManifests: {
+                            ...state.importManifests,
+                            [hash]: {
+                                ...existing,
+                                accounts: {
+                                    ...existing.accounts,
+                                    [accountNumber]: {
+                                        importedAt: new Date().toISOString(),
+                                        newCount: meta?.newCount ?? 0,
+                                        dupes: meta?.dupes ?? 0,
+                                    },
+                                },
+                            },
+                        },
+                    };
+                }),
+            // Phase 4: process savings queue after ingestion apply
+            processSavingsQueue: (entries) =>
+                set((state) => {
+                    if (!entries || !entries.length) return {};
+                    // Merge with any existing queue; open modal
+                    const merged = [...(state.savingsReviewQueue || []), ...entries];
+                    return {
+                        savingsReviewQueue: merged,
+                        isSavingsModalOpen: true,
+                    };
+                }),
+            // --- Staging model helpers ---
+            addPendingSavingsQueue: (accountNumber, entries) =>
+                set((state) => {
+                    if (!entries || !entries.length) return {};
+                    const current = state.pendingSavingsByAccount[accountNumber] || [];
+                    return {
+                        pendingSavingsByAccount: {
+                            ...state.pendingSavingsByAccount,
+                            [accountNumber]: current.concat(entries),
+                        },
+                    };
+                }),
+            clearPendingSavingsForAccount: (accountNumber) =>
+                set((state) => {
+                    if (!state.pendingSavingsByAccount[accountNumber]) return {};
+                    const next = { ...state.pendingSavingsByAccount };
+                    delete next[accountNumber];
+                    return { pendingSavingsByAccount: next };
+                }),
+            markTransactionsBudgetApplied: (accountNumber, months) =>
+                set((state) => {
+                    const acct = state.accounts[accountNumber];
+                    if (!acct?.transactions) return {};
+                    const monthSet = months ? new Set(months) : null; // null means all
+                    let changed = false;
+                    const updated = acct.transactions.map((tx) => {
+                        if (tx.staged && !tx.budgetApplied) {
+                            const txMonth = tx.date?.slice(0, 7);
+                            if (!monthSet || monthSet.has(txMonth)) {
+                                changed = true;
+                                return { ...tx, staged: false, budgetApplied: true };
+                            }
+                        }
+                        return tx;
+                    });
+                    if (!changed) return {};
+                    return {
+                        accounts: {
+                            ...state.accounts,
+                            [accountNumber]: { ...acct, transactions: updated },
+                        },
+                    };
+                }),
+            processPendingSavingsForAccount: (accountNumber, months) =>
+                set((state) => {
+                    const pending = state.pendingSavingsByAccount[accountNumber] || [];
+                    if (!pending.length) return {};
+                    const monthSet = months ? new Set(months) : null;
+                    const toQueue = monthSet
+                        ? pending.filter((e) => monthSet.has(e.month))
+                        : pending;
+                    if (!toQueue.length) return {};
+                    const remaining = monthSet
+                        ? pending.filter((e) => !monthSet.has(e.month))
+                        : [];
+                    return {
+                        pendingSavingsByAccount: {
+                            ...state.pendingSavingsByAccount,
+                            [accountNumber]: remaining,
+                        },
+                        savingsReviewQueue: [
+                            ...(state.savingsReviewQueue || []),
+                            ...toQueue,
+                        ],
+                        isSavingsModalOpen: true,
+                    };
+                }),
+            recordImportHistory: (entry) =>
+                set((state) => {
+                    const maxEntries = state.importHistoryMaxEntries || 30;
+                    const filtered = state.importHistory.filter(
+                        (e) => e.sessionId !== entry.sessionId // replace if duplicate
+                    );
+                    const updated = [entry, ...filtered].slice(0, maxEntries);
+                    return { importHistory: updated };
+                }),
+            pruneImportHistory: (maxEntries = 30, maxAgeDays = 30) =>
+                set((state) => {
+                    const effectiveMaxEntries =
+                        state.importHistoryMaxEntries || maxEntries;
+                    const effectiveMaxAgeDays =
+                        state.importHistoryMaxAgeDays || maxAgeDays;
+                    const cutoff = Date.now() - effectiveMaxAgeDays * 86400000;
+                    const pruned = state.importHistory
+                        .filter((h) => {
+                            const t = Date.parse(h.importedAt);
+                            return Number.isFinite(t) ? t >= cutoff : true;
+                        })
+                        .slice(0, effectiveMaxEntries); // keep newest already at front
+                    if (pruned.length === state.importHistory.length) return {};
+                    return { importHistory: pruned };
+                }),
+            expireOldStagedTransactions: (maxAgeDays = 30) =>
+                set((state) => {
+                    let changed = false;
+                    const effectiveDays = state.stagedAutoExpireDays || maxAgeDays;
+                    const cutoff = Date.now() - effectiveDays * 86400000;
+                    const accounts = { ...state.accounts };
+                    for (const acctNum of Object.keys(accounts)) {
+                        const acct = accounts[acctNum];
+                        if (!acct?.transactions) continue;
+                        let acctChanged = false;
+                        const txns = acct.transactions.map((tx) => {
+                            if (tx.staged && !tx.budgetApplied) {
+                                const hist = state.importHistory.find(
+                                    (h) => h.sessionId === tx.importSessionId
+                                );
+                                if (hist) {
+                                    const t = Date.parse(hist.importedAt);
+                                    if (Number.isFinite(t) && t < cutoff) {
+                                        changed = true;
+                                        acctChanged = true;
+                                        return {
+                                            ...tx,
+                                            staged: false,
+                                            budgetApplied: true,
+                                            autoApplied: true,
+                                        };
+                                    }
+                                }
+                            }
+                            return tx;
+                        });
+                        if (acctChanged) {
+                            accounts[acctNum] = { ...acct, transactions: txns };
+                        }
+                    }
+                    return changed ? { accounts } : {};
+                }),
+            undoStagedImport: (accountNumber, sessionId) =>
+                set((state) => {
+                    const acct = state.accounts[accountNumber];
+                    if (!acct?.transactions) return {};
+                    const hist = state.importHistory.find(
+                        (h) =>
+                            h.sessionId === sessionId && h.accountNumber === accountNumber
+                    );
+                    if (!hist) return {};
+                    // Enforce undo window & not already undone
+                    if (hist.undoneAt) return {};
+                    const windowMs = (state.importUndoWindowMinutes || 30) * 60000;
+                    const importedTime = Date.parse(hist.importedAt);
+                    if (
+                        Number.isFinite(importedTime) &&
+                        Date.now() - importedTime > windowMs
+                    ) {
+                        return {}; // expired; cannot undo
+                    }
+                    let removed = 0;
+                    const remainingTx = acct.transactions.filter((tx) => {
+                        const match = tx.importSessionId === sessionId && tx.staged;
+                        if (match) removed++;
+                        return !match; // remove if staged and session matches
+                    });
+                    if (!removed) return {}; // nothing staged to undo (already applied?)
+                    // Filter pending savings entries for this session
+                    const pending = state.pendingSavingsByAccount[accountNumber] || [];
+                    const remainingPending = pending.filter(
+                        (e) => e.importSessionId !== sessionId
+                    );
+                    // Mark history entry undoneAt & removed count
+                    const importHistory = state.importHistory.map((h) =>
+                        h.sessionId === sessionId &&
+                        h.accountNumber === accountNumber &&
+                        !h.undoneAt
+                            ? { ...h, undoneAt: new Date().toISOString(), removed }
+                            : h
+                    );
+                    return {
+                        accounts: {
+                            ...state.accounts,
+                            [accountNumber]: { ...acct, transactions: remainingTx },
+                        },
+                        pendingSavingsByAccount: {
+                            ...state.pendingSavingsByAccount,
+                            [accountNumber]: remainingPending,
+                        },
+                        importHistory,
+                    };
+                }),
+            // Derived helpers / selectors
+            getImportSessionRuntime: (accountNumber, sessionId) => {
+                const state = useBudgetStore.getState();
+                const hist = state.importHistory.find(
+                    (h) => h.sessionId === sessionId && h.accountNumber === accountNumber
+                );
+                if (!hist) return null;
+                const acct = state.accounts[accountNumber];
+                let stagedNow = 0;
+                if (acct?.transactions) {
+                    stagedNow = acct.transactions.filter(
+                        (t) => t.importSessionId === sessionId && t.staged
+                    ).length;
+                }
+                const removed = hist.removed || 0;
+                const appliedCount = (hist.newCount || 0) - stagedNow - removed;
+                const importedAtMs = Date.parse(hist.importedAt);
+                const undoWindowMinutes = state.importUndoWindowMinutes || 30;
+                const expiresAt = Number.isFinite(importedAtMs)
+                    ? importedAtMs + undoWindowMinutes * 60000
+                    : null;
+                const now = Date.now();
+                const expired = expiresAt ? now > expiresAt : false;
+                const canUndo = !hist.undoneAt && !expired && stagedNow > 0;
+                let status;
+                if (hist.undoneAt) {
+                    status =
+                        removed > 0 && removed < hist.newCount
+                            ? 'partial-undone'
+                            : 'undone';
+                } else if (stagedNow > 0) {
+                    status = expired ? 'expired' : 'active';
+                } else {
+                    status =
+                        appliedCount === hist.newCount ? 'applied' : 'partial-applied';
+                }
+                return {
+                    stagedNow,
+                    appliedCount,
+                    removed,
+                    canUndo,
+                    expired,
+                    status,
+                    expiresAt,
+                    importedAt: hist.importedAt,
+                    newCount: hist.newCount,
+                    savingsCount: hist.savingsCount,
+                    hash: hist.hash,
+                };
+            },
+            getAccountStagedSessionSummaries: (accountNumber) => {
+                const state = useBudgetStore.getState();
+                const acct = state.accounts[accountNumber];
+                if (!acct?.transactions) return [];
+                const bySession = new Map();
+                for (const tx of acct.transactions) {
+                    if (tx.staged && tx.importSessionId) {
+                        bySession.set(
+                            tx.importSessionId,
+                            (bySession.get(tx.importSessionId) || 0) + 1
+                        );
+                    }
+                }
+                return Array.from(bySession.entries())
+                    .map(([sessionId, count]) => {
+                        const r = state.getImportSessionRuntime(accountNumber, sessionId);
+                        return { sessionId, count, ...r };
+                    })
+                    .sort((a, b) =>
+                        (b.importedAt || '').localeCompare(a.importedAt || '')
+                    );
+            },
+            // Settings mutators
+            updateImportSettings: (partial) =>
+                set((state) => {
+                    const changes = {};
+                    let changed = false;
+                    for (const k of Object.keys(partial || {})) {
+                        if (state[k] !== partial[k] && partial[k] !== undefined) {
+                            changes[k] = partial[k];
+                            changed = true;
+                        }
+                    }
+                    return changed ? changes : {};
+                }),
+            setShowIngestionBenchmark: (flag) => set({ showIngestionBenchmark: !!flag }),
+            // Promise-based savings linking flow
+            awaitSavingsLink: (entries) => {
+                // enqueue and open modal, then return a promise resolved by resolveSavingsLink
+                set({ savingsReviewQueue: entries, isSavingsModalOpen: true });
+                return new Promise((resolve) => {
+                    useBudgetStore.setState({ resolveSavingsPromise: resolve });
+                });
+            },
+            resolveSavingsLink: (result) => {
+                const resolver = useBudgetStore.getState().resolveSavingsPromise;
+                if (typeof resolver === 'function') {
+                    try {
+                        resolver(result);
+                    } catch {
+                        // noop
+                    }
+                }
+                set({
+                    resolveSavingsPromise: null,
+                    isSavingsModalOpen: false,
+                    savingsReviewQueue: [],
+                });
+            },
             addMultipleSavingsLogs: (month, logs) =>
                 set((state) => {
                     const current = state.savingsLogs[month] || [];
@@ -192,12 +541,20 @@ export const useBudgetStore = create(
             addTransactionsToAccount: (accountNumber, transactions) =>
                 set((state) => {
                     const existing = state.accounts[accountNumber]?.transactions || [];
-                    const seen = new Set(existing.map(getTransactionKey)); // use your existing helper
-
-                    const newTxs = transactions.filter(
-                        (tx) => !seen.has(getTransactionKey(tx))
+                    const seen = new Set(
+                        existing.map((t) => getStrongTransactionKey(t, accountNumber))
                     );
-
+                    const newTxs = [];
+                    for (const tx of transactions) {
+                        const key = getStrongTransactionKey(tx, accountNumber);
+                        if (!seen.has(key)) {
+                            seen.add(key);
+                            newTxs.push({
+                                ...tx,
+                                accountNumber: tx.accountNumber || accountNumber,
+                            });
+                        }
+                    }
                     const updated = [...existing, ...newTxs].sort((a, b) =>
                         a.date.localeCompare(b.date)
                     );
@@ -766,15 +1123,117 @@ export const useBudgetStore = create(
                             : {}),
                     };
                 }),
+            // Add a migration utility to re-classify non-savings transactions by sign.
+            createStore: (set) => ({
+                // ...existing state & actions...
+
+                migrateSignBasedTypes: () => {
+                    set((state) => {
+                        if (!state.accounts) return {};
+                        let changed = false;
+                        const accounts = { ...state.accounts };
+                        for (const acctNum of Object.keys(accounts)) {
+                            const acct = accounts[acctNum];
+                            if (!acct?.transactions) continue;
+                            let txChanged = false;
+                            const txns = acct.transactions.map((tx) => {
+                                if (tx.type === 'savings') return tx;
+                                const signed =
+                                    typeof tx.rawAmount === 'number'
+                                        ? tx.rawAmount
+                                        : Number(tx.amount) || 0;
+                                const desired = signed >= 0 ? 'income' : 'expense';
+                                if (tx.type !== desired) {
+                                    txChanged = true;
+                                    return { ...tx, type: desired };
+                                }
+                                return tx;
+                            });
+                            if (txChanged) {
+                                changed = true;
+                                accounts[acctNum] = { ...acct, transactions: txns };
+                            }
+                        }
+                        return changed ? { accounts } : {};
+                    });
+                },
+
+                migrateSignedAmountsAndTypes: () => {
+                    set((state) => {
+                        if (!state.accounts) return {};
+                        let changed = false;
+                        const accounts = { ...state.accounts };
+                        for (const acctNum of Object.keys(accounts)) {
+                            const acct = accounts[acctNum];
+                            if (!acct?.transactions) continue;
+                            let txChanged = false;
+                            const txns = acct.transactions.map((tx) => {
+                                let updated = tx;
+                                // Repair rawAmount sign from original.Amount if parentheses present and rawAmount non-negative
+                                const origAmtStr =
+                                    tx.original?.Amount || tx.original?.amount;
+                                if (
+                                    typeof updated.rawAmount === 'number' &&
+                                    updated.rawAmount >= 0 &&
+                                    typeof origAmtStr === 'string' &&
+                                    /^\(.*\)$/.test(origAmtStr.trim())
+                                ) {
+                                    updated = {
+                                        ...updated,
+                                        rawAmount: -Math.abs(updated.rawAmount),
+                                    };
+                                }
+
+                                // Re-classify non-savings
+                                if (updated.type !== 'savings') {
+                                    const signed =
+                                        typeof updated.rawAmount === 'number'
+                                            ? updated.rawAmount
+                                            : Number(updated.amount) || 0;
+                                    const desired = signed >= 0 ? 'income' : 'expense';
+                                    if (updated.type !== desired) {
+                                        updated = { ...updated, type: desired };
+                                    }
+                                }
+
+                                if (updated !== tx) {
+                                    txChanged = true;
+                                }
+                                return updated;
+                            });
+                            if (txChanged) {
+                                changed = true;
+                                accounts[acctNum] = { ...acct, transactions: txns };
+                            }
+                        }
+                        return changed ? { accounts } : {};
+                    });
+                },
+
+                // ...existing actions...
+            }),
         }),
 
         {
             name: 'budget-app-storage', // key in localStorage
             partialize: (state) => {
-                // Intentionally strip transient auth flags from persistence
-                // eslint-disable-next-line no-unused-vars
-                const { sessionExpired, hasInitialized, ...rest } = state;
-                return rest;
+                // Intentionally strip transient flags and UI modal/progress from persistence
+                const clone = { ...state };
+                delete clone.sessionExpired;
+                delete clone.hasInitialized;
+                delete clone.isSavingsModalOpen;
+                delete clone.savingsReviewQueue;
+                delete clone.resolveSavingsPromise;
+                delete clone.isConfirmModalOpen;
+                delete clone.isLoadingModalOpen;
+                delete clone.isProgressOpen;
+                delete clone.progressHeader;
+                delete clone.progressCount;
+                delete clone.progressTotal;
+                delete clone.loadingHeader;
+                delete clone.showIngestionBenchmark; // dev-only toggle not persisted
+                // importHistory is retained for audit/undo
+                return clone;
             },
         }
     )

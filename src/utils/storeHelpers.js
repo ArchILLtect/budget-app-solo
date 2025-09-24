@@ -1,5 +1,9 @@
 import { useBudgetStore } from '../state/budgetStore';
 import { getCurrentUser } from './auth';
+// Strong ingestion key builder (accountNumber|date|signedAmount|normalized desc[|bal:balance])
+// Imported here to provide a gradual migration path away from the legacy key used
+// for persisted historical transactions. We keep both for a stabilization window.
+import { buildTxKey } from '../ingest/buildTxKey.js';
 
 export const applySessionRefresh = async () => {
     const user = await getCurrentUser();
@@ -56,19 +60,25 @@ export const getMonthlyTotals = (account, month) => {
     return totals;
 };
 
-export const getTransactionKey = (tx) => {
-    const amt = normalizeTransactionAmount(tx.amount) || 0;
-    return `${tx.date}|${amt.toFixed(2)}|${(tx.description || '').toLowerCase().trim()}`;
+// Strong key (single source of truth) -------------------------------------------------
+export const getStrongTransactionKey = (tx, accountNumber) =>
+    buildTxKey({ ...tx, accountNumber: tx.accountNumber || accountNumber });
+
+export const getUniqueTransactions = (existing, incoming, accountNumber) => {
+    const seen = new Set(
+        existing.map((tx) => getStrongTransactionKey(tx, accountNumber))
+    );
+    return incoming.filter((tx) => {
+        const key = getStrongTransactionKey(tx, accountNumber);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+    });
 };
 
 export const getSavingsKey = (tx) => {
     const amt = normalizeTransactionAmount(tx.amount) || 0;
     return `${tx.date}|${amt.toFixed(2)}`;
-};
-
-export const getUniqueTransactions = (existing, incoming, getKey = getTransactionKey) => {
-    const seen = new Set(existing.map(getKey));
-    return incoming.filter((tx) => !seen.has(getKey(tx)));
 };
 
 export const normalizeTransactionAmount = (tx, direct = false) => {

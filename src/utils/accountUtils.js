@@ -384,12 +384,17 @@ export const applyOneMonth2 = async (
             }
         }
 
-        store.setSavingsReviewQueue(reviewEntries);
-        store.setSavingsModalOpen(true);
-
-        await new Promise((resolve) => {
-            useBudgetStore.setState({ resolveSavingsPromise: resolve });
-        });
+        // Open modal and wait for user to review/link savings logs
+        if (typeof store.awaitSavingsLink === 'function') {
+            await store.awaitSavingsLink(reviewEntries);
+        } else {
+            // Fallback: directly resolve without blocking if action missing
+            // to avoid hanging the apply flow in unexpected states
+            useBudgetStore.setState({
+                savingsReviewQueue: reviewEntries,
+                isSavingsModalOpen: true,
+            });
+        }
     }
 
     if (showToast) {

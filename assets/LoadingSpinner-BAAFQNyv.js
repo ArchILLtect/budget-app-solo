@@ -1,0 +1,1 @@
+import{j as r,S as e}from"./index-xwMjE7XY.js";import{C as s}from"./center-CIAJU8Ix.js";const t=()=>r.jsx(s,{h:"48",children:r.jsx(e,{thickness:"4px",speed:"0.65s",emptyColor:"gray.200",color:"blue.500",size:"xl"})});export{t as L};

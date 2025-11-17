@@ -1,0 +1,1 @@
+import{r as c}from"./recharts-fUgtte1b.js";import{z as f}from"./index-xwMjE7XY.js";function m(e,n,u,o){const r=f(u);return c.useEffect(()=>{const s=typeof e=="function"?e():e??document;if(!(!u||!s))return s.addEventListener(n,r,o),()=>{s.removeEventListener(n,r,o)}},[n,e,o,r,u]),()=>{(typeof e=="function"?e():e??document)?.removeEventListener(n,r,o)}}export{m as u};

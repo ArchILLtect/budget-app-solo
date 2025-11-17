@@ -1,0 +1,1 @@
+import{c as e}from"./create-icon-DM1WmCyW.js";const r=e({displayName:"ChevronDownIcon",d:"M16.59 8.59L12 13.17 7.41 8.59 6 10l6 6 6-6z"}),n=Object.freeze(Object.defineProperty({__proto__:null},Symbol.toStringTag,{value:"Module"}));export{r as C,n as _};
